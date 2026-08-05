@@ -68,11 +68,25 @@
 
   .container{max-width:1080px;margin:0 auto;padding:28px 24px 80px;}
 
-  .tabs{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:22px;border-bottom:1px solid var(--line-strong);}
-  .tabs-left{display:flex;gap:4px;}
+  .tabs-geral{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:8px;border-bottom:2px solid var(--line-strong);}
+  .tabs-geral-left{display:flex;gap:6px;}
+  .tab-geral{
+    padding:13px 22px;font-size:17px;font-weight:700;color:var(--ink-soft);
+    border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;
+    margin-bottom:-2px;transition:color .15s;letter-spacing:-0.01em;
+  }
+  .tab-geral:hover{color:var(--green-dark);}
+  .tab-geral.active{color:var(--green-dark);border-bottom-color:var(--green);}
+  .tab-geral .count{
+    display:inline-block;margin-left:7px;padding:2px 9px;border-radius:20px;
+    background:var(--line);color:var(--ink-soft);font-size:12.5px;font-weight:600;
+  }
+  .tab-geral.active .count{background:var(--green-soft);color:var(--green);}
+
+  .tabs{display:flex;gap:4px;margin:14px 0 20px;border-bottom:1px solid var(--line);}
   .tab{
-    padding:12px 18px;font-size:16px;font-weight:600;color:var(--ink-soft);
-    border:none;background:none;cursor:pointer;border-bottom:2.5px solid transparent;
+    padding:9px 16px;font-size:14px;font-weight:600;color:var(--ink-mute);
+    border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;
     margin-bottom:-1px;transition:color .15s;
   }
   .tab:hover{color:var(--green-dark);}
@@ -197,6 +211,7 @@
   .tag-c3{background:#E9E1F5;color:#6E4FA0;}
   .tag-c4{background:#E1EFE0;color:#3C7A3F;}
   .tag-c5{background:#F7E1EA;color:#B0477C;}
+  .tag-planta{background:#E1F0E8;color:#2E7D5B;}
 
   .empty{padding:64px 24px;text-align:center;color:var(--ink-mute);}
   .empty svg{margin-bottom:10px;color:var(--line-strong);}
@@ -300,11 +315,11 @@
 
 <div class="container">
 
-  <div class="tabs">
-    <div class="tabs-left">
-      <button class="tab active" data-view="pedidos">Pedidos <span class="count" id="countPedidos">0</span></button>
-      <button class="tab" data-view="clientes">Clientes <span class="count" id="countClientes">0</span></button>
-      <button class="tab" data-view="historico">Histórico <span class="count" id="countHistorico">0</span></button>
+  <div class="tabs-geral">
+    <div class="tabs-geral-left">
+      <button class="tab-geral active" data-geral="aves">Aves</button>
+      <button class="tab-geral" data-geral="plantas">Plantas</button>
+      <button class="tab-geral" data-geral="clientes">Clientes <span class="count" id="countClientes">0</span></button>
     </div>
     <button class="tab-help-btn" id="btnHelp" title="Ajuda">
       <span>Ajuda</span>
@@ -312,9 +327,27 @@
     </button>
   </div>
 
-  <div id="viewPedidos"></div>
+  <div id="secaoAves">
+    <div class="tabs">
+      <button class="tab tab-aves active" data-view="pedidos">Pedidos <span class="count" id="countPedidos">0</span></button>
+      <button class="tab tab-aves" data-view="historico">Histórico <span class="count" id="countHistorico">0</span></button>
+    </div>
+    <div id="viewPedidos"></div>
+    <div id="viewHistorico" style="display:none;"></div>
+  </div>
+
+  <div id="secaoPlantas" style="display:none;">
+    <div class="tabs">
+      <button class="tab tab-planta active" data-viewplanta="pedidos">Pedidos <span class="count" id="countPedidosPlantas">0</span></button>
+      <button class="tab tab-planta" data-viewplanta="historico">Histórico <span class="count" id="countHistoricoPlantas">0</span></button>
+      <button class="tab tab-planta" data-viewplanta="cadastro">Cadastro <span class="count" id="countCadastroPlantas">0</span></button>
+    </div>
+    <div id="viewPlantasPedidos"></div>
+    <div id="viewPlantasHistorico" style="display:none;"></div>
+    <div id="viewPlantasCadastro" style="display:none;"></div>
+  </div>
+
   <div id="viewClientes" style="display:none;"></div>
-  <div id="viewHistorico" style="display:none;"></div>
 
 </div>
 
@@ -336,7 +369,9 @@
   var STORAGE_KEY = "aves_vivas_api_url";
   var state = {
     apiUrl: safeGet(STORAGE_KEY) || "",
+    viewGeral: "aves",
     view: "pedidos",
+    viewPlanta: "pedidos",
     clientes: [],
     pedidos: [],
     loadingClientes: false,
@@ -352,7 +387,20 @@
     estoque: {},
     estoqueExpandido: false,
     precos: {},
-    buscaClientes: ""
+    buscaClientes: "",
+
+    plantas: [],
+    pedidosPlantas: [],
+    loadingPlantas: false,
+    loadingPedidosPlantas: false,
+    filtroPlanta: "Todos",
+    buscaPedidosPlanta: "",
+    histPlantaCategoria: "Todos",
+    histPlantaStatus: "Encerrado",
+    histPlantaBusca: "",
+    histPlantaDataDe: "",
+    histPlantaDataAte: "",
+    buscaCadastroPlanta: ""
   };
 
   function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
@@ -401,27 +449,44 @@
     if(!state.apiUrl){ openSettingsModal(); return; }
     state.loadingClientes = true;
     state.loadingPedidos = true;
+    state.loadingPlantas = true;
+    state.loadingPedidosPlantas = true;
     renderClientes();
     renderPedidos();
     renderHistorico();
+    renderPlantasPedidos();
+    renderPlantasHistorico();
+    renderCadastroPlantas();
     api("getInicial").then(function(data){
       state.clientes = (data && data.clientes) || [];
       state.pedidos = (data && data.pedidos) || [];
       state.estoque = (data && data.estoque) || {};
       state.precos = (data && data.precos) || {};
+      state.plantas = (data && data.plantas) || [];
+      state.pedidosPlantas = (data && data.pedidosPlantas) || [];
       state.loadingClientes = false;
       state.loadingPedidos = false;
+      state.loadingPlantas = false;
+      state.loadingPedidosPlantas = false;
       setStatus(true, "Conectado");
       renderClientes();
       renderPedidos();
       renderHistorico();
+      renderPlantasPedidos();
+      renderPlantasHistorico();
+      renderCadastroPlantas();
     }).catch(function(err){
       state.loadingClientes = false;
       state.loadingPedidos = false;
+      state.loadingPlantas = false;
+      state.loadingPedidosPlantas = false;
       setStatus(false, "Falha na conexão");
       renderClientes();
       renderPedidos();
       renderHistorico();
+      renderPlantasPedidos();
+      renderPlantasHistorico();
+      renderCadastroPlantas();
       toast(err.message, "err");
     });
   }
@@ -476,6 +541,43 @@
       setStatus(false, "Falha na conexão");
       renderPedidos();
       renderHistorico();
+      toast(err.message, "err");
+    });
+  }
+
+  function loadPlantas(){
+    state.loadingPlantas = true;
+    renderCadastroPlantas();
+    api("listPlantas").then(function(data){
+      state.plantas = data || [];
+      state.loadingPlantas = false;
+      setStatus(true, "Conectado");
+      renderCadastroPlantas();
+      renderPlantasPedidos();
+      renderPlantasHistorico();
+    }).catch(function(err){
+      state.loadingPlantas = false;
+      setStatus(false, "Falha na conexão");
+      renderCadastroPlantas();
+      toast(err.message, "err");
+    });
+  }
+
+  function loadPedidosPlantas(){
+    state.loadingPedidosPlantas = true;
+    renderPlantasPedidos();
+    renderPlantasHistorico();
+    api("listPedidosPlantas").then(function(data){
+      state.pedidosPlantas = data || [];
+      state.loadingPedidosPlantas = false;
+      setStatus(true, "Conectado");
+      renderPlantasPedidos();
+      renderPlantasHistorico();
+    }).catch(function(err){
+      state.loadingPedidosPlantas = false;
+      setStatus(false, "Falha na conexão");
+      renderPlantasPedidos();
+      renderPlantasHistorico();
       toast(err.message, "err");
     });
   }
@@ -614,6 +716,65 @@
 
   function findPedidoGroup(pedidoId){
     return groupPedidos().filter(function(g){ return g.pedidoId === pedidoId; })[0];
+  }
+
+  // ---------------------------------------------------------------
+  // PLANTAS — equivalentes (agrupamento, preço, whatsapp)
+  // ---------------------------------------------------------------
+  function precoDePlanta(nomePlanta){
+    var p = state.plantas.filter(function(x){ return x.nome === nomePlanta; })[0];
+    return p ? Number(p.preco) || 0 : 0;
+  }
+
+  function buildWhatsAppMensagemPlanta(g){
+    var linhas = g.itens.map(function(it){
+      return "• " + it.qtd + "x " + it.planta;
+    }).join("\n");
+    return "Olá " + g.nome + "! Aqui é da Agro Benevenuto.\n\n"
+      + "Seu pedido já está pronto para retirada:\n" + linhas + "\n\n"
+      + "Te esperamos por aqui!";
+  }
+
+  function buildWhatsAppLinkPlanta(g){
+    var digitos = String(g.telefone||"").replace(/\D/g, "");
+    if(digitos.length < 10) return null;
+    if(digitos.length <= 11) digitos = "55" + digitos;
+    return "https://wa.me/" + digitos + "?text=" + encodeURIComponent(buildWhatsAppMensagemPlanta(g));
+  }
+
+  function groupPedidosPlantas(){
+    var byId = {};
+    var order = [];
+    state.pedidosPlantas.forEach(function(p){
+      if(!byId[p.pedidoId]){
+        byId[p.pedidoId] = {
+          pedidoId: p.pedidoId,
+          nome: p.nome,
+          telefone: p.telefone,
+          endereco: p.endereco,
+          municipio: p.municipio,
+          observacoes: p.observacoes,
+          status: p.status || "Ativo",
+          dataCriacao: p.dataCriacao,
+          itens: []
+        };
+        order.push(byId[p.pedidoId]);
+      }
+      byId[p.pedidoId].itens.push({
+        planta: p.planta,
+        qtd: Number(p.qtd) || 0,
+        rowIndex: p.rowIndex
+      });
+    });
+    order.forEach(function(g){
+      g.qtdTotal = g.itens.reduce(function(s,it){ return s + it.qtd; }, 0);
+      g.valorTotal = g.itens.reduce(function(s,it){ return s + it.qtd * precoDePlanta(it.planta); }, 0);
+    });
+    return order;
+  }
+
+  function findPedidoPlantaGroup(pedidoId){
+    return groupPedidosPlantas().filter(function(g){ return g.pedidoId === pedidoId; })[0];
   }
 
   // ---------------------------------------------------------------
@@ -972,6 +1133,342 @@
     wirePedidoRowActions(root);
   }
 
+  // ---------------------------------------------------------------
+  // PLANTAS — VIEW: PEDIDOS (ativos)
+  // ---------------------------------------------------------------
+  function filteredPedidosPlantas(){
+    return groupPedidosPlantas().filter(function(g){
+      if(g.status !== "Ativo") return false;
+      if(state.filtroPlanta !== "Todos" && !g.itens.some(function(it){ return it.planta === state.filtroPlanta; })) return false;
+      if(state.buscaPedidosPlanta){
+        var q = state.buscaPedidosPlanta.toLowerCase();
+        var hay = (g.nome + " " + g.municipio).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
+  }
+
+  function buildPedidoPlantaRowsHtml(list, showStatusCol){
+    var html = '<table><thead><tr>';
+    html += '<th>Cliente</th><th>Plantas</th><th>Qtd total</th><th>Município</th><th>Valor</th>';
+    if(showStatusCol) html += '<th>Status</th>';
+    html += '<th>Data</th><th></th>';
+    html += '</tr></thead><tbody>';
+    list.forEach(function(g){
+      var statusBadge = g.status === "Encerrado"
+        ? '<span class="badge badge-encerrado">Encerrado</span>'
+        : '<span class="badge badge-ativo">Ativo</span>';
+      var tipos = g.itens.map(function(it){
+        return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag tag-planta">'+escapeHtml(it.planta)+'</span></div>';
+      }).join("");
+      html += '<tr>';
+      html += '<td data-label="Cliente"><div>'+escapeHtml(g.nome)+'</div><div class="cell-sub">'+escapeHtml(g.telefone||"")+'</div></td>';
+      html += '<td data-label="Plantas">'+tipos+'</td>';
+      html += '<td data-label="Qtd total">'+g.qtdTotal+'</td>';
+      html += '<td data-label="Município">'+escapeHtml(g.municipio||"")+'</td>';
+      html += '<td data-label="Valor"><b>'+formatMoeda(g.valorTotal)+'</b></td>';
+      if(showStatusCol) html += '<td data-label="Status">'+statusBadge+'</td>';
+      html += '<td data-label="Data" class="cell-sub">'+escapeHtml(g.dataCriacao||"")+'</td>';
+      html += '<td><div class="row-actions">';
+      var waLink = buildWhatsAppLinkPlanta(g);
+      if(waLink){
+        html += '<a class="btn btn-icon btn-sm btn-whatsapp" href="'+waLink+'" target="_blank" rel="noopener" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</a>';
+      }
+      html += '<button class="btn btn-icon btn-sm" data-act="edit-pedido-planta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Editar">'+ICON.edit+'</button>';
+      if(g.status === "Encerrado"){
+        html += '<button class="btn btn-icon btn-sm" data-act="reabrir-planta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Reabrir pedido">'+ICON.undo+'</button>';
+      } else {
+        html += '<button class="btn btn-icon btn-sm" data-act="encerrar-planta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Encerrar pedido">'+ICON.check+'</button>';
+      }
+      html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-pedido-planta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Remover">'+ICON.trash+'</button>';
+      html += '</div></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function wirePedidoPlantaRowActions(root){
+    root.querySelectorAll('[data-act="edit-pedido-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
+        if(g) openPedidoPlantaModal(g);
+      });
+    });
+    root.querySelectorAll('[data-act="encerrar-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
+        confirmModal("Encerrar pedido", "Encerrar o pedido de " + (g?g.nome:"") + "? Ele continua no histórico, marcado como encerrado.", "Encerrar", function(){
+          api("encerrarPedidoPlanta", { pedidoId: g.pedidoId }).then(function(){
+            toast("Pedido encerrado.");
+            loadPedidosPlantas();
+          }).catch(function(err){ toast(err.message, "err"); });
+        });
+      });
+    });
+    root.querySelectorAll('[data-act="reabrir-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
+        api("reabrirPedidoPlanta", { pedidoId: g.pedidoId }).then(function(){
+          toast("Pedido reaberto.");
+          loadPedidosPlantas();
+        }).catch(function(err){ toast(err.message, "err"); });
+      });
+    });
+    root.querySelectorAll('[data-act="del-pedido-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
+        confirmModal("Remover pedido", "Remover o pedido de " + (g?g.nome:"") + " da planilha? Essa ação não pode ser desfeita.", "Remover", function(){
+          api("deletePedidoPlanta", { pedidoId: g.pedidoId }).then(function(){
+            toast("Pedido removido.");
+            loadPedidosPlantas();
+          }).catch(function(err){ toast(err.message, "err"); });
+        }, true);
+      });
+    });
+  }
+
+  function renderPlantasPedidos(){
+    var root = document.getElementById("viewPlantasPedidos");
+    if(!root) return;
+    var catOptions = '<option value="Todos">Todas as plantas</option>' + state.plantas.map(function(p){
+      return '<option value="'+escapeHtml(p.nome)+'"'+(state.filtroPlanta===p.nome?' selected':'')+'>'+escapeHtml(p.nome)+'</option>';
+    }).join("");
+
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <select id="fPlanta">'+catOptions+'</select>';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="fBuscaPlanta" placeholder="Buscar por nome ou município" value="'+escapeHtml(state.buscaPedidosPlanta)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <button class="btn btn-primary" id="btnNovoPedidoPlanta">'+ICON.plus+' Novo pedido</button>';
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingPedidosPlantas){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando pedidos...</div>';
+    } else {
+      var list = filteredPedidosPlantas();
+      if(list.length === 0){
+        html += emptyState(ICON.box, "Nenhum pedido ativo encontrado", state.pedidosPlantas.length===0 ? "Cadastre o primeiro pedido para começar." : "Ajuste os filtros ou crie um novo pedido.");
+      } else {
+        html += buildPedidoPlantaRowsHtml(list, true);
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("countPedidosPlantas").textContent = groupPedidosPlantas().filter(function(g){return g.status==="Ativo";}).length;
+
+    document.getElementById("fPlanta").addEventListener("change", function(e){ state.filtroPlanta = e.target.value; renderPlantasPedidos(); });
+    var fBuscaPlanta = document.getElementById("fBuscaPlanta");
+    fBuscaPlanta.addEventListener("input", function(e){ state.buscaPedidosPlanta = e.target.value; renderPlantasPedidos(); preserveFocus(fBuscaPlanta); });
+    document.getElementById("btnNovoPedidoPlanta").addEventListener("click", function(){ openPedidoPlantaModal(null); });
+
+    wirePedidoPlantaRowActions(root);
+  }
+
+  // ---------------------------------------------------------------
+  // PLANTAS — VIEW: HISTÓRICO
+  // ---------------------------------------------------------------
+  function filteredHistoricoPlantas(){
+    var de = state.histPlantaDataDe ? new Date(state.histPlantaDataDe + "T00:00:00") : null;
+    var ate = state.histPlantaDataAte ? new Date(state.histPlantaDataAte + "T23:59:59") : null;
+    return groupPedidosPlantas().filter(function(g){
+      if(state.histPlantaCategoria !== "Todos" && !g.itens.some(function(it){ return it.planta === state.histPlantaCategoria; })) return false;
+      if(state.histPlantaStatus !== "Todos" && g.status !== state.histPlantaStatus) return false;
+      if(state.histPlantaBusca){
+        var q = state.histPlantaBusca.toLowerCase();
+        var hay = (g.nome + " " + g.municipio + " " + (g.observacoes||"")).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      if(de || ate){
+        var d = parseDataCriacao(g.dataCriacao);
+        if(!d) return false;
+        if(de && d < de) return false;
+        if(ate && d > ate) return false;
+      }
+      return true;
+    }).sort(function(a,b){
+      var da = parseDataCriacao(a.dataCriacao), db = parseDataCriacao(b.dataCriacao);
+      if(da && db && da.getTime() !== db.getTime()) return db - da;
+      return (a.nome||"").localeCompare(b.nome||"");
+    });
+  }
+
+  function renderPlantasHistorico(){
+    var root = document.getElementById("viewPlantasHistorico");
+    if(!root) return;
+    var catOptions = '<option value="Todos">Todas as plantas</option>' + state.plantas.map(function(p){
+      return '<option value="'+escapeHtml(p.nome)+'"'+(state.histPlantaCategoria===p.nome?' selected':'')+'>'+escapeHtml(p.nome)+'</option>';
+    }).join("");
+
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <select id="hPlantaCategoria">'+catOptions+'</select>';
+    html += '  <select id="hPlantaStatus">';
+    html += '    <option value="Todos"'+(state.histPlantaStatus==='Todos'?' selected':'')+'>Todos os status</option>';
+    html += '    <option value="Ativo"'+(state.histPlantaStatus==='Ativo'?' selected':'')+'>Ativos</option>';
+    html += '    <option value="Encerrado"'+(state.histPlantaStatus==='Encerrado'?' selected':'')+'>Encerrados</option>';
+    html += '  </select>';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="hPlantaBusca" placeholder="Buscar por palavra-chave, nome, município..." value="'+escapeHtml(state.histPlantaBusca)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <label class="date-filter-label">De<input type="date" id="hPlantaDataDe" value="'+escapeHtml(state.histPlantaDataDe)+'"></label>';
+    html += '  <label class="date-filter-label">Até<input type="date" id="hPlantaDataAte" value="'+escapeHtml(state.histPlantaDataAte)+'"></label>';
+    if(state.histPlantaDataDe || state.histPlantaDataAte || state.histPlantaCategoria !== "Todos" || state.histPlantaStatus !== "Todos" || state.histPlantaBusca){
+      html += '  <button class="btn btn-sm" id="btnLimparHistPlanta">Limpar filtros</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingPedidosPlantas){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando histórico...</div>';
+    } else {
+      var list = filteredHistoricoPlantas();
+      if(list.length === 0){
+        html += emptyState(ICON.box, "Nenhum pedido encontrado", state.pedidosPlantas.length===0 ? "Os pedidos criados vão aparecer aqui." : "Ajuste os filtros para ver outros pedidos.");
+      } else {
+        var somaValor = list.reduce(function(s,g){ return s + g.valorTotal; }, 0);
+        html += '<div class="historico-total-row"><span>Valor total dos pedidos filtrados</span><span class="historico-total-valor">'+formatMoeda(somaValor)+'</span></div>';
+        html += buildPedidoPlantaRowsHtml(list, true);
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("countHistoricoPlantas").textContent = groupPedidosPlantas().filter(function(g){return g.status==="Encerrado";}).length;
+
+    document.getElementById("hPlantaCategoria").addEventListener("change", function(e){ state.histPlantaCategoria = e.target.value; renderPlantasHistorico(); });
+    document.getElementById("hPlantaStatus").addEventListener("change", function(e){ state.histPlantaStatus = e.target.value; renderPlantasHistorico(); });
+    document.getElementById("hPlantaDataDe").addEventListener("change", function(e){ state.histPlantaDataDe = e.target.value; renderPlantasHistorico(); });
+    document.getElementById("hPlantaDataAte").addEventListener("change", function(e){ state.histPlantaDataAte = e.target.value; renderPlantasHistorico(); });
+    var hPlantaBusca = document.getElementById("hPlantaBusca");
+    hPlantaBusca.addEventListener("input", function(e){ state.histPlantaBusca = e.target.value; renderPlantasHistorico(); preserveFocus(hPlantaBusca); });
+    var btnLimparPlanta = document.getElementById("btnLimparHistPlanta");
+    if(btnLimparPlanta){
+      btnLimparPlanta.addEventListener("click", function(){
+        state.histPlantaCategoria = "Todos"; state.histPlantaStatus = "Todos"; state.histPlantaBusca = ""; state.histPlantaDataDe = ""; state.histPlantaDataAte = "";
+        renderPlantasHistorico();
+      });
+    }
+
+    wirePedidoPlantaRowActions(root);
+  }
+
+  // ---------------------------------------------------------------
+  // PLANTAS — CADASTRO (catálogo de tipos + preço)
+  // ---------------------------------------------------------------
+  function filteredCadastroPlantas(){
+    return state.plantas.filter(function(p){
+      if(state.buscaCadastroPlanta){
+        var q = state.buscaCadastroPlanta.toLowerCase();
+        if(p.nome.toLowerCase().indexOf(q) === -1) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
+  }
+
+  function renderCadastroPlantas(){
+    var root = document.getElementById("viewPlantasCadastro");
+    if(!root) return;
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="cpBusca" placeholder="Buscar tipo de planta" value="'+escapeHtml(state.buscaCadastroPlanta)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <button class="btn btn-primary" id="btnNovaPlanta">'+ICON.plus+' Novo tipo de planta</button>';
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingPlantas){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+    } else {
+      var list = filteredCadastroPlantas();
+      if(list.length === 0){
+        html += emptyState(ICON.stock, "Nenhum tipo de planta cadastrado", "Cadastre o primeiro tipo de planta e seu preço para começar a lançar pedidos.");
+      } else {
+        html += '<table><thead><tr><th>Nome</th><th>Preço/unidade</th><th></th></tr></thead><tbody>';
+        list.forEach(function(p){
+          html += '<tr>';
+          html += '<td data-label="Nome">'+escapeHtml(p.nome)+'</td>';
+          html += '<td data-label="Preço/unidade">'+formatMoeda(p.preco)+'</td>';
+          html += '<td><div class="row-actions">';
+          html += '<button class="btn btn-icon btn-sm" data-act="edit-planta" data-row="'+p.rowIndex+'" title="Editar">'+ICON.edit+'</button>';
+          html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-planta" data-row="'+p.rowIndex+'" title="Remover">'+ICON.trash+'</button>';
+          html += '</div></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("countCadastroPlantas").textContent = state.plantas.length;
+
+    document.getElementById("btnNovaPlanta").addEventListener("click", function(){ openPlantaCadastroModal(null); });
+    var cpBusca = document.getElementById("cpBusca");
+    cpBusca.addEventListener("input", function(e){ state.buscaCadastroPlanta = e.target.value; renderCadastroPlantas(); preserveFocus(cpBusca); });
+
+    root.querySelectorAll('[data-act="edit-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var p = state.plantas.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        if(p) openPlantaCadastroModal(p);
+      });
+    });
+    root.querySelectorAll('[data-act="del-planta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var p = state.plantas.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        confirmModal("Remover tipo de planta", "Remover \""+escapeHtml(p?p.nome:"")+"\" do cadastro? Pedidos já lançados com esse tipo não são afetados.", "Remover", function(){
+          api("deletePlanta", { rowIndex: p.rowIndex }).then(function(){
+            toast("Tipo de planta removido.");
+            loadPlantas();
+          }).catch(function(err){ toast(err.message, "err"); });
+        }, true);
+      });
+    });
+  }
+
+  function openPlantaCadastroModal(planta){
+    var editing = !!(planta && planta.rowIndex);
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-sm">';
+    html += '<div class="modal-head"><h2>'+(editing?"Editar tipo de planta":"Novo tipo de planta")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<div class="field"><label>Nome</label><input type="text" id="pnNome" placeholder="Ex: Muda de limão" value="'+escapeHtml(planta?planta.nome:"")+'"></div>';
+    html += '<div class="field"><label>Preço por unidade (R$)</label><input type="number" min="0" step="0.01" id="pnPreco" value="'+(planta?Number(planta.preco).toFixed(2):"0.00")+'"></div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Adicionar")+'</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("mSave").addEventListener("click", function(){
+      var nome = document.getElementById("pnNome").value.trim();
+      if(!nome){ toast("Informe o nome da planta.", "err"); return; }
+      var preco = Number(document.getElementById("pnPreco").value);
+      if(isNaN(preco) || preco < 0){ toast("Informe um preço válido.", "err"); return; }
+      var payload = { rowIndex: editing ? planta.rowIndex : undefined, nome: nome, preco: preco };
+      var btn = document.getElementById("mSave");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      var call = editing ? api("updatePlanta", payload) : api("addPlanta", payload);
+      call.then(function(resultData){
+        toast(editing ? "Tipo de planta atualizado." : "Tipo de planta adicionado.");
+        closeModal();
+        if(editing){
+          var idx = state.plantas.findIndex(function(x){ return x.rowIndex === planta.rowIndex; });
+          var atualizado = { rowIndex: planta.rowIndex, nome: nome, preco: preco };
+          if(idx > -1){ state.plantas[idx] = atualizado; } else { state.plantas.push(atualizado); }
+        } else {
+          state.plantas.push({ rowIndex: resultData && resultData.rowIndex, nome: nome, preco: preco });
+        }
+        renderCadastroPlantas();
+        loadPlantas();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.textContent = editing ? "Salvar alterações" : "Adicionar";
+      });
+    });
+  }
+
   function preserveFocus(el){
     var val = el.value;
     setTimeout(function(){
@@ -1205,6 +1702,200 @@
   }
 
   // ---------------------------------------------------------------
+  // PLANTAS — MODAL: NOVO / EDITAR PEDIDO
+  // ---------------------------------------------------------------
+  function openPedidoPlantaModal(pedidoGroup){
+    var editing = !!(pedidoGroup && pedidoGroup.pedidoId);
+
+    if(state.plantas.length === 0){
+      toast("Cadastre ao menos um tipo de planta antes de lançar um pedido.", "err");
+      return;
+    }
+
+    var itens = pedidoGroup && pedidoGroup.itens && pedidoGroup.itens.length
+      ? pedidoGroup.itens.map(function(it){ return { planta: it.planta, qtd: it.qtd }; })
+      : [{ planta: state.plantas[0].nome, qtd: 1 }];
+
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-pedido">';
+    html += '<div class="modal-head"><h2>'+(editing?"Editar pedido":"Novo pedido")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+
+    html += '<div class="field autocomplete">';
+    html += '<label>Cliente</label>';
+    html += '<input type="text" id="pNome" placeholder="Nome do cliente" value="'+escapeHtml(pedidoGroup?pedidoGroup.nome:"")+'" autocomplete="off">';
+    html += '<div id="pAutocomplete"></div>';
+    html += '</div>';
+
+    html += '<div class="field-row">';
+    html += '<div class="field"><label>Telefone</label><input type="tel" id="pTelefone" placeholder="(54) 99999-9999" value="'+escapeHtml(pedidoGroup?pedidoGroup.telefone:"")+'"></div>';
+    html += '<div class="field"><label>Município</label><input type="text" id="pMunicipio" placeholder="Município" value="'+escapeHtml(pedidoGroup?pedidoGroup.municipio:"")+'"></div>';
+    html += '</div>';
+
+    html += '<div class="field"><label>Endereço</label><input type="text" id="pEndereco" placeholder="Endereço completo" value="'+escapeHtml(pedidoGroup?pedidoGroup.endereco:"")+'"></div>';
+
+    html += '<label class="itens-label">Plantas neste pedido</label>';
+    html += '<div id="pItensWrapPlanta"></div>';
+    html += '<button type="button" class="btn btn-sm" id="btnAddItemPlanta" style="margin-bottom:16px;">'+ICON.plus+' Adicionar outra planta</button>';
+
+    html += '<div class="field"><label>Observações</label><input type="text" id="pObs" placeholder="Opcional" value="'+escapeHtml(pedidoGroup?pedidoGroup.observacoes:"")+'"></div>';
+
+    html += '<div class="pedido-total-row"><span>Total do pedido</span><span id="pTotalValorPlanta" class="pedido-total-valor">R$ 0,00</span></div>';
+
+    html += '<div class="modal-actions">';
+    html += '<button class="btn" id="mCancel">Cancelar</button>';
+    html += '<button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Criar pedido")+'</button>';
+    html += '</div></div></div>';
+
+    document.getElementById("modalRoot").innerHTML = html;
+
+    function recalcularTotal(){
+      var total = itens.reduce(function(s, it){ return s + (Number(it.qtd)||0) * precoDePlanta(it.planta); }, 0);
+      document.getElementById("pTotalValorPlanta").textContent = formatMoeda(total);
+    }
+
+    function renderItens(){
+      var wrap = document.getElementById("pItensWrapPlanta");
+      var html2 = itens.map(function(it, idx){
+        var preco = precoDePlanta(it.planta);
+        var linha = '<div class="item-linha" data-idx="'+idx+'">';
+        linha += '<div class="item-linha-top">';
+        linha += '<select class="itPlanta" data-idx="'+idx+'">'+state.plantas.map(function(pl){
+          return '<option value="'+escapeHtml(pl.nome)+'"'+(pl.nome===it.planta?' selected':'')+'>'+escapeHtml(pl.nome)+'</option>';
+        }).join("")+'</select>';
+        linha += '<input type="number" class="itQtd" data-idx="'+idx+'" min="1" step="1" value="'+(it.qtd||1)+'" placeholder="Qtd">';
+        if(itens.length > 1){
+          linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover esta planta">'+ICON.trash+'</button>';
+        }
+        linha += '</div>';
+        linha += '<div class="item-linha-valor">'+it.qtd+' x '+formatMoeda(preco)+' = <b>'+formatMoeda((Number(it.qtd)||0)*preco)+'</b></div>';
+        linha += '</div>';
+        return linha;
+      }).join("");
+      wrap.innerHTML = html2;
+
+      wrap.querySelectorAll(".itPlanta").forEach(function(sel){
+        sel.addEventListener("change", function(){
+          var idx = Number(sel.dataset.idx);
+          itens[idx].planta = sel.value;
+          renderItens();
+          recalcularTotal();
+        });
+      });
+      wrap.querySelectorAll(".itQtd").forEach(function(inp){
+        inp.addEventListener("input", function(){
+          var idx = Number(inp.dataset.idx);
+          itens[idx].qtd = Number(inp.value) || 0;
+          renderItens();
+          recalcularTotal();
+          preserveFocus(inp);
+        });
+      });
+      wrap.querySelectorAll(".itRemove").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var idx = Number(btn.dataset.idx);
+          itens.splice(idx, 1);
+          renderItens();
+          recalcularTotal();
+        });
+      });
+    }
+
+    renderItens();
+    recalcularTotal();
+
+    document.getElementById("btnAddItemPlanta").addEventListener("click", function(){
+      var usadas = itens.map(function(it){ return it.planta; });
+      var proxima = state.plantas.filter(function(p){ return usadas.indexOf(p.nome) === -1; })[0] || state.plantas[0];
+      itens.push({ planta: proxima.nome, qtd: 1 });
+      renderItens();
+      recalcularTotal();
+    });
+
+    // autocomplete de cliente
+    var pNome = document.getElementById("pNome");
+    pNome.addEventListener("input", function(){
+      var q = pNome.value.trim().toLowerCase();
+      var box = document.getElementById("pAutocomplete");
+      if(q.length < 2){ box.innerHTML = ""; return; }
+      var matches = state.clientes.filter(function(c){ return c.nome.toLowerCase().indexOf(q) !== -1; }).slice(0, 6);
+      if(matches.length === 0){ box.innerHTML = ""; return; }
+      box.innerHTML = '<div class="autocomplete-list">' + matches.map(function(c){
+        return '<div class="autocomplete-item" data-nome="'+escapeHtml(c.nome)+'"><div class="n">'+escapeHtml(c.nome)+'</div><div class="m">'+escapeHtml(c.municipio||"")+' · '+escapeHtml(c.telefone||"")+'</div></div>';
+      }).join("") + '</div>';
+      box.querySelectorAll(".autocomplete-item").forEach(function(item, idx){
+        item.addEventListener("click", function(){
+          var c = matches[idx];
+          pNome.value = c.nome;
+          document.getElementById("pTelefone").value = c.telefone || "";
+          document.getElementById("pEndereco").value = c.endereco || "";
+          document.getElementById("pMunicipio").value = c.municipio || "";
+          box.innerHTML = "";
+        });
+      });
+    });
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+
+    document.getElementById("mSave").addEventListener("click", function(){
+      var nome = pNome.value.trim();
+      if(!nome){ toast("Informe o nome do cliente.", "err"); return; }
+      if(itens.length === 0){ toast("Adicione ao menos uma planta.", "err"); return; }
+      var itensValidos = itens.filter(function(it){ return (Number(it.qtd)||0) > 0; });
+      if(itensValidos.length === 0){ toast("Informe uma quantidade maior que zero.", "err"); return; }
+
+      var payload = {
+        pedidoId: editing ? pedidoGroup.pedidoId : undefined,
+        nome: nome,
+        telefone: document.getElementById("pTelefone").value.trim(),
+        endereco: document.getElementById("pEndereco").value.trim(),
+        municipio: document.getElementById("pMunicipio").value.trim(),
+        observacoes: document.getElementById("pObs").value.trim(),
+        itens: itensValidos.map(function(it){ return { planta: it.planta, qtd: Number(it.qtd) || 0 }; })
+      };
+
+      if(!editing){
+        var clienteExiste = state.clientes.some(function(cl){ return cl.nome.trim().toLowerCase() === nome.toLowerCase(); });
+        if(!clienteExiste){
+          confirmModal(
+            "Cliente não encontrado",
+            "\""+escapeHtml(nome)+"\" ainda não está cadastrado em Clientes. Deseja cadastrar esse cliente agora?",
+            "Sim, cadastrar",
+            function(){
+              openClienteModal(
+                { nome: payload.nome, telefone: payload.telefone, endereco: payload.endereco, municipio: payload.municipio },
+                null,
+                true
+              );
+            },
+            false,
+            null,
+            true
+          );
+          return;
+        }
+      }
+
+      salvarPedidoPlanta(payload, editing);
+    });
+  }
+
+  function salvarPedidoPlanta(payload, editing){
+    var btn = document.getElementById("mSave");
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+
+    var call = editing ? api("updatePedidoPlanta", payload) : api("addPedidoPlanta", payload);
+    call.then(function(){
+      toast(editing ? "Pedido atualizado." : "Pedido criado.");
+      closeModal();
+      loadPedidosPlantas();
+    }).catch(function(err){
+      toast(err.message, "err");
+      btn.disabled = false; btn.textContent = editing ? "Salvar alterações" : "Criar pedido";
+    });
+  }
+
+  // ---------------------------------------------------------------
   // VIEW: CLIENTES
   // ---------------------------------------------------------------
   function filteredClientes(){
@@ -1383,51 +2074,91 @@
   }
 
   function openHelpModal(){
-    var titulos = { pedidos: "Ajuda — Pedidos", clientes: "Ajuda — Clientes", historico: "Ajuda — Histórico" };
-    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
-    html += '<div class="modal-head"><h2>'+(titulos[state.view] || "Como usar o app")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    var titulos = {
+      "aves-pedidos": "Ajuda — Aves · Pedidos",
+      "aves-historico": "Ajuda — Aves · Histórico",
+      "plantas-pedidos": "Ajuda — Plantas · Pedidos",
+      "plantas-historico": "Ajuda — Plantas · Histórico",
+      "plantas-cadastro": "Ajuda — Plantas · Cadastro",
+      "clientes": "Ajuda — Clientes"
+    };
+    var chave = state.viewGeral === "clientes" ? "clientes" : (state.viewGeral + "-" + (state.viewGeral === "aves" ? state.view : state.viewPlanta));
 
-    if(state.view === "clientes"){
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>'+(titulos[chave] || "Como usar o app")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+
+    if(chave === "clientes"){
       html += helpSection(ICON.users, "Cadastro de clientes", '<ul>'
         + '<li>Use <b>+ Novo cliente</b> para cadastrar nome, telefone, endereço e município.</li>'
         + '<li>Clique no lápis '+ICON.edit+' em qualquer linha para editar, ou na lixeira '+ICON.trash+' para remover.</li>'
         + '<li>A busca no topo filtra por nome ou município enquanto você digita.</li>'
+        + '<li>Essa lista de clientes é <b>compartilhada</b> entre Aves e Plantas — um cliente cadastrado de um lado já aparece disponível do outro.</li>'
         + '</ul>');
 
-    } else if(state.view === "historico"){
+    } else if(chave === "aves-historico"){
       html += helpSection(ICON.filter, "O que essa aba mostra", '<p>Por padrão mostra os pedidos <b>encerrados</b>. Use o filtro de status para ver ativos ou todos juntos. Pode filtrar por:</p><ul>'
         + '<li><b>Palavra-chave</b>: busca por nome do cliente, município ou observações.</li>'
         + '<li><b>Tipo de ave</b> e <b>status</b> (ativos, encerrados ou todos).</li>'
         + '<li><b>Período</b>: escolha uma data "De" e/ou "Até" para ver só os pedidos lançados naquele intervalo.</li>'
         + '</ul>');
-
-      html += helpSection(ICON.money, "Valor total", '<p>Acima da lista aparece o <b>valor total somado</b> dos pedidos que estão sendo mostrados no momento — ele muda automaticamente conforme você ajusta qualquer filtro (categoria, status, busca ou período).</p>');
-
+      html += helpSection(ICON.money, "Valor total", '<p>Acima da lista aparece o <b>valor total somado</b> dos pedidos que estão sendo mostrados no momento — ele muda automaticamente conforme você ajusta qualquer filtro.</p>');
       html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
         + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído.</li>'
         + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo — ele passa a aparecer de novo na aba Pedidos.</li>'
         + '<li>'+ICON.trash+' <b>Remover</b> apaga a linha da planilha de vez — não tem como desfazer.</li>'
         + '</ul>');
 
-    } else {
-      // pedidos (padrão)
+    } else if(chave === "aves-pedidos"){
       html += helpSection(ICON.box, "Criar e editar pedidos", '<p>Mostra só os pedidos <b>ativos</b> — os já encerrados ficam na aba Histórico.</p><ul>'
         + '<li>Use <b>+ Novo pedido</b> para lançar um pedido. Comece digitando o nome do cliente — se ele já estiver cadastrado, aparece uma lista para clicar e preencher telefone/endereço/município automaticamente.</li>'
         + '<li>Um mesmo pedido pode ter <b>vários tipos de ave</b> — use "Adicionar outro tipo de ave" para incluir mais itens. O valor de cada item é calculado sozinho (quantidade x preço por ave), e o total do pedido soma tudo.</li>'
-        + '<li>Cada tipo de ave aparece com uma <b>cor diferente</b> na etiqueta, pra facilitar de bater o olho e identificar. O nome abreviado da etiqueta mostra o nome completo se passar o mouse por cima.</li>'
+        + '<li>Cada tipo de ave aparece com uma <b>cor diferente</b> na etiqueta. O nome abreviado da etiqueta mostra o nome completo se passar o mouse por cima.</li>'
         + '<li>Se o nome digitado não estiver cadastrado em Clientes, o app pergunta se quer cadastrar esse cliente primeiro — ao confirmar, já abre o formulário de novo cliente e, depois de salvo, volta pro pedido com os dados preenchidos.</li>'
         + '<li>O lápis '+ICON.edit+' edita o pedido; a lixeira '+ICON.trash+' remove de vez.</li>'
-        + '<li>O ícone verde de balão '+ICON.whatsapp+' abre o WhatsApp (app ou web, o que estiver conectado no computador) com uma mensagem já pronta avisando que o pedido está pronto para retirada, listando os itens. Só aparece quando o cliente tem telefone cadastrado.</li>'
+        + '<li>O ícone verde de balão '+ICON.whatsapp+' abre o WhatsApp com uma mensagem já pronta avisando que o pedido está pronto para retirada. Só aparece quando o cliente tem telefone cadastrado.</li>'
         + '</ul>');
-
       html += helpSection(ICON.stock, "Estoque disponível", '<p>No topo da aba fica um painel mostrando quantas aves ainda estão sobrando. Clique em qualquer parte do cabeçalho para abrir ou fechar os detalhes.</p><ul>'
         + '<li>O número grande no topo mostra o total sobrando somando todos os tipos de ave.</li>'
         + '<li>A tabela logo abaixo mostra, para cada tipo de ave: quanto foi <b>encomendado</b>, quanto já está em <b>pedidos ativos</b>, e quanto <b>sobra</b>.</li>'
-        + '<li>Clique no lápis '+ICON.edit+' de uma linha para informar quantas aves daquele tipo foram encomendadas. O sistema desconta os pedidos ativos automaticamente e recalcula sempre que um pedido é criado, editado, encerrado ou removido.</li>'
-        + '<li>Se os pedidos passarem do total encomendado, o número de sobrando aparece em vermelho.</li>'
-        + '<li>Na mesma linha, o ícone de cifrão define o <b>preço por ave</b> daquele tipo — é esse valor que o app usa para calcular o total dos pedidos.</li>'
+        + '<li>Clique no lápis '+ICON.edit+' de uma linha para informar quantas aves daquele tipo foram encomendadas. O sistema desconta os pedidos ativos automaticamente.</li>'
+        + '<li>Na mesma linha, o ícone de cifrão define o <b>preço por ave</b> daquele tipo.</li>'
+        + '</ul>');
+      html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
+        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e ele sai da aba Pedidos, indo para o Histórico.</li>'
+        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo.</li>'
+        + '<li>'+ICON.trash+' <b>Remover</b> apaga a linha da planilha de vez — não tem como desfazer.</li>'
         + '</ul>');
 
+    } else if(chave === "plantas-historico"){
+      html += helpSection(ICON.filter, "O que essa aba mostra", '<p>Por padrão mostra os pedidos <b>encerrados</b>. Use o filtro de status para ver ativos ou todos juntos. Pode filtrar por:</p><ul>'
+        + '<li><b>Palavra-chave</b>: busca por nome do cliente, município ou observações.</li>'
+        + '<li><b>Tipo de planta</b> e <b>status</b> (ativos, encerrados ou todos).</li>'
+        + '<li><b>Período</b>: escolha uma data "De" e/ou "Até" para ver só os pedidos lançados naquele intervalo.</li>'
+        + '</ul>');
+      html += helpSection(ICON.money, "Valor total", '<p>Acima da lista aparece o <b>valor total somado</b> dos pedidos que estão sendo mostrados no momento — ele muda automaticamente conforme você ajusta qualquer filtro.</p>');
+      html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
+        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído.</li>'
+        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo — ele passa a aparecer de novo na aba Pedidos.</li>'
+        + '<li>'+ICON.trash+' <b>Remover</b> apaga a linha da planilha de vez — não tem como desfazer.</li>'
+        + '</ul>');
+
+    } else if(chave === "plantas-cadastro"){
+      html += helpSection(ICON.stock, "Cadastro de tipos de planta", '<p>Aqui você mantém a lista de plantas que vende, cada uma com seu preço por unidade.</p><ul>'
+        + '<li>Use <b>+ Novo tipo de planta</b> para cadastrar um nome e o preço.</li>'
+        + '<li>O lápis '+ICON.edit+' edita o nome/preço; a lixeira '+ICON.trash+' remove o tipo do cadastro (pedidos já lançados com ele não são afetados).</li>'
+        + '<li>Esses tipos cadastrados aqui são o que aparece pra escolher na hora de criar um pedido de planta.</li>'
+        + '</ul>');
+
+    } else {
+      // plantas-pedidos (padrão)
+      html += helpSection(ICON.box, "Criar e editar pedidos", '<p>Mostra só os pedidos <b>ativos</b> — os já encerrados ficam na aba Histórico.</p><ul>'
+        + '<li>Antes de criar um pedido, cadastre os tipos de planta na aba <b>Cadastro</b> (nome e preço).</li>'
+        + '<li>Use <b>+ Novo pedido</b> para lançar um pedido. Comece digitando o nome do cliente — se ele já estiver cadastrado, aparece uma lista para clicar e preencher telefone/endereço/município automaticamente.</li>'
+        + '<li>Um mesmo pedido pode ter <b>várias plantas</b> — use "Adicionar outra planta" para incluir mais itens. O valor de cada item é calculado sozinho (quantidade x preço), e o total do pedido soma tudo.</li>'
+        + '<li>Se o nome digitado não estiver cadastrado em Clientes, o app pergunta se quer cadastrar esse cliente primeiro — ao confirmar, já abre o formulário de novo cliente e, depois de salvo, volta pro pedido com os dados preenchidos.</li>'
+        + '<li>O lápis '+ICON.edit+' edita o pedido; a lixeira '+ICON.trash+' remove de vez.</li>'
+        + '<li>O ícone verde de balão '+ICON.whatsapp+' abre o WhatsApp com uma mensagem já pronta avisando que o pedido está pronto para retirada. Só aparece quando o cliente tem telefone cadastrado.</li>'
+        + '</ul>');
       html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
         + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e ele sai da aba Pedidos, indo para o Histórico.</li>'
         + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo.</li>'
@@ -1471,14 +2202,39 @@
   // ---------------------------------------------------------------
   // NAV / BOOT
   // ---------------------------------------------------------------
-  document.querySelectorAll(".tab").forEach(function(tab){
+
+  // Nível superior: Aves / Plantas / Clientes
+  document.querySelectorAll(".tab-geral").forEach(function(tab){
     tab.addEventListener("click", function(){
-      document.querySelectorAll(".tab").forEach(function(t){ t.classList.remove("active"); });
+      document.querySelectorAll(".tab-geral").forEach(function(t){ t.classList.remove("active"); });
+      tab.classList.add("active");
+      state.viewGeral = tab.dataset.geral;
+      document.getElementById("secaoAves").style.display = state.viewGeral === "aves" ? "" : "none";
+      document.getElementById("secaoPlantas").style.display = state.viewGeral === "plantas" ? "" : "none";
+      document.getElementById("viewClientes").style.display = state.viewGeral === "clientes" ? "" : "none";
+    });
+  });
+
+  // Sub-abas dentro de Aves: Pedidos / Histórico
+  document.querySelectorAll(".tab-aves").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      document.querySelectorAll(".tab-aves").forEach(function(t){ t.classList.remove("active"); });
       tab.classList.add("active");
       state.view = tab.dataset.view;
       document.getElementById("viewPedidos").style.display = state.view === "pedidos" ? "" : "none";
-      document.getElementById("viewClientes").style.display = state.view === "clientes" ? "" : "none";
       document.getElementById("viewHistorico").style.display = state.view === "historico" ? "" : "none";
+    });
+  });
+
+  // Sub-abas dentro de Plantas: Pedidos / Histórico / Cadastro
+  document.querySelectorAll(".tab-planta").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      document.querySelectorAll(".tab-planta").forEach(function(t){ t.classList.remove("active"); });
+      tab.classList.add("active");
+      state.viewPlanta = tab.dataset.viewplanta;
+      document.getElementById("viewPlantasPedidos").style.display = state.viewPlanta === "pedidos" ? "" : "none";
+      document.getElementById("viewPlantasHistorico").style.display = state.viewPlanta === "historico" ? "" : "none";
+      document.getElementById("viewPlantasCadastro").style.display = state.viewPlanta === "cadastro" ? "" : "none";
     });
   });
 
@@ -1489,6 +2245,9 @@
   renderPedidos();
   renderClientes();
   renderHistorico();
+  renderPlantasPedidos();
+  renderPlantasHistorico();
+  renderCadastroPlantas();
   if(state.apiUrl){
     loadAll();
   } else {
