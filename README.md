@@ -4,7 +4,7 @@ App de controle de clientes e pedidos da Agro Benevenuto — clientes, pedidos c
 
 ## Baixar e instalar
 
-[![Baixar Aves Agro](https://img.shields.io/badge/Baixar-Aves%20Agro-2E7D32?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/HenriqueBenevenuto/agro-app/releases/latest/download/AvesAgro-Instalador.exe)
+[![Baixar Aves Agro](https://img.shields.io/badge/Baixar-Aves%20Agro-2E7D32?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/HenriqueBenevenuto/agro-app/releases/Output/latest/download/AvesAgro-Instalador.exe)
 
 1. Clique no botão acima.
 2. Na página que abrir, baixe o arquivo **AvesAgro-Instalador.exe**.
