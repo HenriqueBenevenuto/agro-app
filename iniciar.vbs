@@ -1,16 +1,36 @@
 ' ===================================================================
 '  AVES AGRO - LANCADOR + AUTO-ATUALIZACAO
 ' ===================================================================
-'  CONFIGURACAO (edite so estas duas linhas depois de subir os arquivos
-'  para o seu repositorio no GitHub):
+'  CONFIGURACAO: de preferencia edite o arquivo config.txt (na mesma
+'  pasta) em vez destas linhas -- ele tambem e usado pela pagina do
+'  app pra checar atualizacoes sozinha. Se config.txt nao existir,
+'  usa os valores abaixo.
 ' ===================================================================
-GITHUB_USER = "SEU-USUARIO-AQUI"
-GITHUB_REPO = "aves-agro-app"
+GITHUB_USER_PADRAO = "SEU-USUARIO-AQUI"
+GITHUB_REPO_PADRAO = "aves-agro-app"
 ' ===================================================================
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+
+GITHUB_USER = GITHUB_USER_PADRAO
+GITHUB_REPO = GITHUB_REPO_PADRAO
+configPath = scriptDir & "\config.txt"
+If fso.FileExists(configPath) Then
+    Set cf = fso.OpenTextFile(configPath, 1)
+    Do Until cf.AtEndOfStream
+        linha = cf.ReadLine
+        pos = InStr(linha, "=")
+        If pos > 0 Then
+            chave = Trim(Left(linha, pos - 1))
+            valor = Trim(Mid(linha, pos + 1))
+            If chave = "GITHUB_USER" And valor <> "" Then GITHUB_USER = valor
+            If chave = "GITHUB_REPO" And valor <> "" Then GITHUB_REPO = valor
+        End If
+    Loop
+    cf.Close
+End If
 
 BASE_URL = "https://raw.githubusercontent.com/" & GITHUB_USER & "/" & GITHUB_REPO & "/main/"
 

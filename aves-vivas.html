@@ -2598,7 +2598,67 @@
     });
   });
 
-  document.getElementById("btnHelp").addEventListener("click", openHelpModal);
+  // ---------------------------------------------------------------
+  // AUTO-ATUALIZAÇÃO (checa de tempos em tempos, mesmo com o app já aberto)
+  // ---------------------------------------------------------------
+  var UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutos
+  var avisoVersaoJaMostrado = null;
+
+  function carregarConfigUpdate(){
+    return fetch("config.txt?t=" + Date.now())
+      .then(function(r){ return r.ok ? r.text() : ""; })
+      .then(function(txt){
+        var cfg = {};
+        txt.split(/\r?\n/).forEach(function(linha){
+          var idx = linha.indexOf("=");
+          if(idx > -1){ cfg[linha.slice(0, idx).trim()] = linha.slice(idx + 1).trim(); }
+        });
+        return cfg;
+      }).catch(function(){ return {}; });
+  }
+
+  function checarAtualizacaoPeriodica(){
+    carregarConfigUpdate().then(function(cfg){
+      if(!cfg.GITHUB_USER || !cfg.GITHUB_REPO || cfg.GITHUB_USER.indexOf("SEU-USUARIO") === 0) return;
+      var baseUrl = "https://raw.githubusercontent.com/" + cfg.GITHUB_USER + "/" + cfg.GITHUB_REPO + "/main/";
+      Promise.all([
+        fetch("version.txt?t=" + Date.now()).then(function(r){ return r.text(); }).catch(function(){ return "0"; }),
+        fetch(baseUrl + "version.txt?t=" + Date.now()).then(function(r){ return r.text(); }).catch(function(){ return "0"; })
+      ]).then(function(res){
+        var local = parseInt(String(res[0]).trim(), 10) || 0;
+        var remoto = parseInt(String(res[1]).trim(), 10) || 0;
+        if(remoto > local && avisoVersaoJaMostrado !== remoto){
+          avisoVersaoJaMostrado = remoto;
+          fetch(baseUrl + "changelog.txt?t=" + Date.now()).then(function(r){ return r.ok ? r.text() : ""; }).catch(function(){ return ""; }).then(function(changelog){
+            mostrarAvisoAtualizacao(baseUrl, changelog);
+          });
+        }
+      });
+    });
+  }
+
+  function mostrarAvisoAtualizacao(baseUrl, changelog){
+    var corpo = "Uma nova versão do Aves Agro está disponível.";
+    if(changelog && changelog.trim()){
+      corpo += "<br><br><b>Novidades:</b><br>" + escapeHtml(changelog.trim()).replace(/\n/g, "<br>");
+    }
+    corpo += "<br><br>Deseja atualizar agora? A tela vai recarregar sozinha em seguida.";
+    confirmModal("Nova versão disponível", corpo, "Atualizar agora", function(){
+      toast("Baixando atualização...");
+      fetch("__atualizar__", { method: "POST" }).then(function(r){ return r.json(); }).then(function(data){
+        if(data && data.ok){
+          toast("Atualizado! Recarregando...");
+          setTimeout(function(){ location.reload(); }, 1200);
+        } else {
+          toast("Falha ao atualizar: " + (data && data.error ? data.error : "erro desconhecido"), "err");
+        }
+      }).catch(function(){
+        toast("Não foi possível baixar a atualização agora.", "err");
+      });
+    }, false, null);
+  }
+
+  // ---------------------------------------------------------------
   document.getElementById("btnSettings").addEventListener("click", openSettingsModal);
   document.getElementById("btnRefresh").addEventListener("click", function(){ loadAll(); });
 
@@ -2613,6 +2673,9 @@
   } else {
     openSettingsModal();
   }
+
+  setTimeout(checarAtualizacaoPeriodica, 5000);
+  setInterval(checarAtualizacaoPeriodica, UPDATE_CHECK_INTERVAL_MS);
 
 })();
 </script>

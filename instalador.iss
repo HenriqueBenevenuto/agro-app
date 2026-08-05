@@ -5,7 +5,7 @@
 ;  1. Baixe e instale o Inno Setup (gratuito): https://jrsoftware.org/isdl.php
 ;  2. Coloque este arquivo (instalador.iss) na MESMA pasta dos arquivos:
 ;     aves-vivas.html, servidor.ps1, iniciar.vbs, agro-benevenuto.ico,
-;     version.txt
+;     version.txt, config.txt (com GITHUB_USER/GITHUB_REPO já preenchidos)
 ;  3. Abra o instalador.iss com o Inno Setup (duplo clique) e clique em
 ;     Compilar (ou aperte F9).
 ;  4. O instalador pronto aparece em uma subpasta "Output", chamado
@@ -16,7 +16,7 @@
 
 [Setup]
 AppName=Aves Agro
-AppVersion=1.0
+AppVersion=1.1
 AppPublisher=Agro Benevenuto
 DefaultDirName={localappdata}\AvesAgro
 DefaultGroupName=Aves Agro
@@ -38,6 +38,7 @@ Source: "aves-vivas.html"; DestDir: "{app}"; Flags: ignoreversion
 Source: "servidor.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "iniciar.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "agro-benevenuto.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "config.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "version.txt"; DestDir: "{app}"; Flags: onlyifdoesntexist
 
 [Icons]

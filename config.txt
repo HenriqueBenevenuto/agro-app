@@ -1,0 +1,2 @@
+GITHUB_USER=HenriqueBenevenuto
+GITHUB_REPO=agro-app
