@@ -44,13 +44,13 @@ localVersionPath = scriptDir & "\version.txt"
 localVersion = 0
 If fso.FileExists(localVersionPath) Then
     Set f = fso.OpenTextFile(localVersionPath, 1)
-    localVersion = CInt(Trim(f.ReadAll))
+    localVersion = ParseVersao(Trim(f.ReadAll))
     f.Close
 End If
 
 remoteVersionText = HttpGetText(BASE_URL & "version.txt")
 If Err.Number = 0 And remoteVersionText <> "" Then
-    remoteVersion = CInt(Trim(remoteVersionText))
+    remoteVersion = ParseVersao(Trim(remoteVersionText))
     If remoteVersion > localVersion Then
         changelog = HttpGetText(BASE_URL & "changelog.txt")
         msg = "Uma nova versao do Aves Agro esta disponivel." & vbCrLf & vbCrLf
@@ -63,7 +63,7 @@ If Err.Number = 0 And remoteVersionText <> "" Then
             ok3 = AtualizarArquivo("agro-benevenuto.ico")
             If ok1 And ok2 And ok3 Then
                 Set f = fso.CreateTextFile(localVersionPath, True)
-                f.Write CStr(remoteVersion)
+                f.Write Trim(remoteVersionText)
                 f.Close
                 MsgBox "Atualizado! Abrindo o Aves Agro...", vbInformation, "Aves Agro"
             Else
@@ -105,6 +105,25 @@ End If
 ' -------------------------------------------------------------
 ' FUNCOES AUXILIARES
 ' -------------------------------------------------------------
+' Converte "2", "2.2", "2.10" etc num numero comparavel, sem depender da
+' configuracao regional do Windows (evita bug de virgula x ponto decimal).
+Function ParseVersao(txt)
+    Dim partes, maior, menor
+    partes = Split(Trim(txt), ".")
+    maior = CIntSeguro(partes(0))
+    menor = 0
+    If UBound(partes) >= 1 Then menor = CIntSeguro(partes(1))
+    ParseVersao = maior * 1000 + menor
+End Function
+
+Function CIntSeguro(s)
+    On Error Resume Next
+    CIntSeguro = CInt(s)
+    If Err.Number <> 0 Then CIntSeguro = 0
+    Err.Clear
+    On Error Goto 0
+End Function
+
 Function HttpGetText(url)
     On Error Resume Next
     Dim http

@@ -2671,6 +2671,15 @@
   var UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutos
   var avisoVersaoJaMostrado = null;
 
+  // Converte "2", "2.2", "2.10" etc num número comparável (evita o bug de
+  // parseInt cortar tudo depois do ponto).
+  function parseVersaoTexto(txt){
+    var partes = String(txt||"0").trim().split(".");
+    var maior = parseInt(partes[0], 10) || 0;
+    var menor = partes.length > 1 ? (parseInt(partes[1], 10) || 0) : 0;
+    return maior * 1000 + menor;
+  }
+
   function carregarConfigUpdate(){
     return fetch("config.txt?t=" + Date.now())
       .then(function(r){ return r.ok ? r.text() : ""; })
@@ -2692,8 +2701,8 @@
         fetch("version.txt?t=" + Date.now()).then(function(r){ return r.text(); }).catch(function(){ return "0"; }),
         fetch(baseUrl + "version.txt?t=" + Date.now()).then(function(r){ return r.text(); }).catch(function(){ return "0"; })
       ]).then(function(res){
-        var local = parseInt(String(res[0]).trim(), 10) || 0;
-        var remoto = parseInt(String(res[1]).trim(), 10) || 0;
+        var local = parseVersaoTexto(res[0]);
+        var remoto = parseVersaoTexto(res[1]);
         if(remoto > local && avisoVersaoJaMostrado !== remoto){
           avisoVersaoJaMostrado = remoto;
           fetch(baseUrl + "changelog.txt?t=" + Date.now()).then(function(r){ return r.ok ? r.text() : ""; }).catch(function(){ return ""; }).then(function(changelog){
