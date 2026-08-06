@@ -143,6 +143,15 @@
   .estoque-total{font-size:30px;font-weight:700;color:var(--green-dark);letter-spacing:-0.01em;}
   .estoque-chevron{color:var(--ink-mute);display:flex;transition:transform .15s;flex-shrink:0;}
   .estoque-chevron.expandido{transform:rotate(180deg);}
+  .estoque-head-aves{
+    display:flex;align-items:center;justify-content:space-between;width:100%;
+    padding:8px 10px 8px 22px;
+  }
+  .estoque-head-clicavel{
+    display:flex;align-items:center;justify-content:space-between;flex:1;min-width:0;
+    padding:12px 0;border:none;background:none;cursor:pointer;text-align:left;font-family:inherit;
+  }
+  .estoque-head-aves:hover{background:var(--surface-2);}
   .estoque-table{margin-top:0;}
   .estoque-card .estoque-table{padding:0 22px 20px;}
   .estoque-total.neg{color:var(--red);}
@@ -159,6 +168,9 @@
 
   .modal-pedido{max-width:560px;}
   .itens-label{display:block;font-size:14px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;}
+  .gerenciar-tipos-lista{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:4px;}
+  .gerenciar-tipo-linha{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;font-size:14.5px;border-bottom:1px solid var(--line);}
+  .gerenciar-tipo-linha:last-child{border-bottom:none;}
   .item-linha{
     border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;
     background:var(--surface-2);
@@ -401,13 +413,23 @@
 <script>
 (function(){
 
-  var CATEGORIAS = [
-    { nome: "Pinto de Corte Branco", subtipoLabel: null, opcoes: [] },
-    { nome: "Postura 21 dias", subtipoLabel: "Cor", opcoes: ["Branca", "Carijó", "Vermelha"] },
-    { nome: "Machos 21 dias", subtipoLabel: "Tipo", opcoes: ["Polaco Vermelho Macho", "Carijó Macho"] },
-    { nome: "Codorna", subtipoLabel: null, opcoes: [] },
-    { nome: "Postura 90 dias", subtipoLabel: null, opcoes: [] }
-  ];
+  var CATEGORIAS = []; // populado dinamicamente a partir do backend (ver atualizarCategoriasAves)
+
+  var OPCOES_SUBTIPO_PADRAO = {
+    "Postura 21 dias": ["Branca", "Carijó", "Vermelha"],
+    "Machos 21 dias": ["Polaco Vermelho Macho", "Carijó Macho"]
+  };
+
+  function atualizarCategoriasAves(lista){
+    CATEGORIAS.length = 0;
+    (lista || []).forEach(function(c){
+      CATEGORIAS.push({
+        nome: c.nome,
+        subtipoLabel: c.subtipoLabel || null,
+        opcoes: OPCOES_SUBTIPO_PADRAO[c.nome] || []
+      });
+    });
+  }
 
   var STORAGE_KEY = "aves_vivas_api_url";
   var state = {
@@ -506,6 +528,7 @@
     renderPlantasHistorico();
     renderCadastroPlantas();
     api("getInicial").then(function(data){
+      atualizarCategoriasAves(data && data.meta && data.meta.categorias);
       state.clientes = (data && data.clientes) || [];
       state.pedidos = (data && data.pedidos) || [];
       state.estoque = (data && data.estoque) || {};
@@ -879,10 +902,13 @@
     var expandido = state.estoqueExpandido;
 
     var html = '<div class="card estoque-card">';
-    html += '<button type="button" class="estoque-head" id="estoqueToggle">';
+    html += '<div class="estoque-head-aves">';
+    html += '<button type="button" class="estoque-head-clicavel" id="estoqueToggle">';
     html += '<div><div class="estoque-head-label">Sobrando ao todo</div><div class="estoque-total'+(totalSobrando<0?' neg':'')+'">'+totalSobrando+' aves</div></div>';
     html += '<span class="estoque-chevron'+(expandido?' expandido':'')+'">'+ICON.chevron+'</span>';
     html += '</button>';
+    html += '<button type="button" class="btn btn-icon btn-sm" id="btnGerenciarTipos" title="Editar tipos de ave / criar novo tipo" style="margin-left:8px;flex-shrink:0;">'+ICON.gear+'</button>';
+    html += '</div>';
     if(expandido){
       html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Encomendado</th><th>Pedidos ativos</th><th>Sobrando</th><th>Preço/ave</th><th></th></tr></thead><tbody>';
       rows.forEach(function(r){
@@ -911,6 +937,10 @@
         state.estoqueExpandido = !state.estoqueExpandido;
         renderPedidos();
       });
+    }
+    var btnGerenciar = document.getElementById("btnGerenciarTipos");
+    if(btnGerenciar){
+      btnGerenciar.addEventListener("click", function(){ openGerenciarTiposAveModal(); });
     }
     root.querySelectorAll('[data-act="edit-estoque"]').forEach(function(btn){
       btn.addEventListener("click", function(e){
@@ -985,6 +1015,88 @@
         closeModal();
         renderPedidos();
         renderHistorico();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.textContent = "Salvar";
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // GERENCIAR TIPOS DE AVE (renomear existentes / criar novos)
+  // ---------------------------------------------------------------
+  function openGerenciarTiposAveModal(){
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>Gerenciar tipos de ave</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+
+    html += '<label class="itens-label">Tipos existentes</label>';
+    html += '<div class="gerenciar-tipos-lista">';
+    CATEGORIAS.forEach(function(c){
+      html += '<div class="gerenciar-tipo-linha">';
+      html += '<div>'+escapeHtml(c.nome)+(c.subtipoLabel?' <span class="cell-sub">('+escapeHtml(c.subtipoLabel)+')</span>':'')+'</div>';
+      html += '<button class="btn btn-icon btn-sm" data-renomear="'+encodeURIComponent(c.nome)+'" title="Renomear">'+ICON.edit+'</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    html += '<hr class="help-divider">';
+    html += '<label class="itens-label">Adicionar novo tipo de ave</label>';
+    html += '<div class="field"><label>Nome</label><input type="text" id="novoTipoNome" placeholder="Ex: Peru"></div>';
+    html += '<div class="field"><label>Variação (opcional — ex: Cor, Tipo)</label><input type="text" id="novoTipoSubtipo" placeholder="Deixe em branco se não tiver"></div>';
+    html += '<button class="btn btn-primary" id="btnAdicionarTipo" style="width:100%;justify-content:center;">'+ICON.plus+' Adicionar tipo de ave</button>';
+
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+
+    document.querySelectorAll('[data-renomear]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openRenomearTipoAveModal(decodeURIComponent(btn.dataset.renomear));
+      });
+    });
+
+    document.getElementById("btnAdicionarTipo").addEventListener("click", function(){
+      var nome = document.getElementById("novoTipoNome").value.trim();
+      if(!nome){ toast("Informe o nome do novo tipo.", "err"); return; }
+      var subtipo = document.getElementById("novoTipoSubtipo").value.trim();
+      var btn = document.getElementById("btnAdicionarTipo");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      api("criarCategoriaAve", { nome: nome, subtipoLabel: subtipo || null }).then(function(data){
+        atualizarCategoriasAves(data && data.categorias);
+        toast("Tipo de ave criado!");
+        closeModal();
+        renderPedidos();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.innerHTML = ICON.plus + ' Adicionar tipo de ave';
+      });
+    });
+  }
+
+  function openRenomearTipoAveModal(nomeAtual){
+    var html = '<div class="overlay overlay-nested" id="modalOverlayRenomear"><div class="modal modal-sm">';
+    html += '<div class="modal-head"><h2>Renomear tipo de ave</h2></div>';
+    html += '<div class="field"><label>Novo nome</label><input type="text" id="renomearInput" value="'+escapeHtml(nomeAtual)+'"></div>';
+    html += '<p class="help">Isso renomeia a aba correspondente na planilha. Estoque, preço e pedidos já lançados continuam associados a esse tipo, só com o nome novo.</p>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancelRenomear">Cancelar</button><button class="btn btn-primary" id="mSaveRenomear">Salvar</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot2").innerHTML = html;
+
+    document.getElementById("mCancelRenomear").addEventListener("click", closeModal2);
+    document.getElementById("modalOverlayRenomear").addEventListener("click", function(e){ if(e.target.id === "modalOverlayRenomear") closeModal2(); });
+    document.getElementById("mSaveRenomear").addEventListener("click", function(){
+      var novoNome = document.getElementById("renomearInput").value.trim();
+      if(!novoNome){ toast("Informe o novo nome.", "err"); return; }
+      var btn = document.getElementById("mSaveRenomear");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      api("renomearCategoriaAve", { nomeAntigo: nomeAtual, nomeNovo: novoNome }).then(function(data){
+        atualizarCategoriasAves(data && data.categorias);
+        toast("Tipo de ave renomeado!");
+        closeModal2();
+        closeModal();
+        loadAll();
       }).catch(function(err){
         toast(err.message, "err");
         btn.disabled = false; btn.textContent = "Salvar";
@@ -2890,6 +3002,7 @@
         + '<li>A tabela logo abaixo mostra, para cada tipo de ave: quanto foi <b>encomendado</b>, quanto já está em <b>pedidos ativos</b>, e quanto <b>sobra</b>.</li>'
         + '<li>Clique no lápis '+ICON.edit+' de uma linha para informar quantas aves daquele tipo foram encomendadas. O sistema desconta os pedidos ativos automaticamente.</li>'
         + '<li>Na mesma linha, o ícone de cifrão define o <b>preço por ave</b> daquele tipo.</li>'
+        + '<li>O ícone de engrenagem, no canto do painel, abre <b>"Gerenciar tipos de ave"</b> — dá pra renomear um tipo já existente (renomeia a aba correspondente na planilha, sem perder histórico) ou cadastrar um tipo novo do zero.</li>'
         + '</ul>');
       html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
         + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e ele sai da aba Pedidos, indo para o Histórico.</li>'
