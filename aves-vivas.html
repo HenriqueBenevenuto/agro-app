@@ -711,6 +711,17 @@
       + "Te esperamos por aqui!";
   }
 
+  function abrirExterno(url){
+    // Pede pro servidor local abrir o link com o programa padrao do
+    // sistema (navegador preferido, ou o WhatsApp Desktop se for o
+    // handler registrado) -- em vez de abrir dentro da janela do app.
+    fetch("__abrir__?url=" + encodeURIComponent(url)).then(function(r){ return r.json(); }).then(function(data){
+      if(!data || !data.ok){ window.open(url, "_blank"); }
+    }).catch(function(){
+      window.open(url, "_blank");
+    });
+  }
+
   function buildWhatsAppLink(g){
     var digitos = String(g.telefone||"").replace(/\D/g, "");
     if(digitos.length < 10) return null;
@@ -996,7 +1007,7 @@
     html += '<div class="estoque-head" style="cursor:default;">';
     html += '<div><div class="estoque-head-label">Total a encomendar do fornecedor</div><div class="estoque-total">'+totalGeral+' aves</div></div>';
     if(temItens){
-      html += '<a class="btn btn-primary btn-whatsapp-fornecedor" id="btnWhatsFornecedor" href="'+buildWhatsAppLinkFornecedor(linhas)+'" target="_blank" rel="noopener">'+ICON.whatsapp+' Enviar pro fornecedor</a>';
+      html += '<button class="btn btn-primary btn-whatsapp-fornecedor" id="btnWhatsFornecedor" data-wa="'+encodeURIComponent(buildWhatsAppLinkFornecedor(linhas))+'">'+ICON.whatsapp+' Enviar pro fornecedor</button>';
     }
     html += '</div>';
 
@@ -1018,6 +1029,9 @@
       btn.addEventListener("click", function(){
         openEncomendaExtraModal(decodeURIComponent(btn.dataset.cat));
       });
+    });
+    root.querySelectorAll('[data-wa]').forEach(function(btn){
+      btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
     });
   }
 
@@ -1094,7 +1108,7 @@
       html += '<td><div class="row-actions">';
       var waLink = buildWhatsAppLink(g);
       if(waLink){
-        html += '<a class="btn btn-icon btn-sm btn-whatsapp" href="'+waLink+'" target="_blank" rel="noopener" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</a>';
+        html += '<button class="btn btn-icon btn-sm btn-whatsapp" data-wa="'+encodeURIComponent(waLink)+'" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</button>';
       }
       html += '<button class="btn btn-icon btn-sm" data-act="edit-pedido" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Editar">'+ICON.edit+'</button>';
       if(g.status === "Encerrado"){
@@ -1111,6 +1125,9 @@
   }
 
   function wirePedidoRowActions(root){
+    root.querySelectorAll('[data-wa]').forEach(function(btn){
+      btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
+    });
     root.querySelectorAll('[data-act="edit-pedido"]').forEach(function(btn){
       btn.addEventListener("click", function(){
         var g = findPedidoGroup(decodeURIComponent(btn.dataset.pid));
@@ -1318,7 +1335,7 @@
       html += '<td><div class="row-actions">';
       var waLink = buildWhatsAppLinkPlanta(g);
       if(waLink){
-        html += '<a class="btn btn-icon btn-sm btn-whatsapp" href="'+waLink+'" target="_blank" rel="noopener" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</a>';
+        html += '<button class="btn btn-icon btn-sm btn-whatsapp" data-wa="'+encodeURIComponent(waLink)+'" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</button>';
       }
       html += '<button class="btn btn-icon btn-sm" data-act="edit-pedido-planta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Editar">'+ICON.edit+'</button>';
       if(g.status === "Encerrado"){
@@ -1335,6 +1352,9 @@
   }
 
   function wirePedidoPlantaRowActions(root){
+    root.querySelectorAll('[data-wa]').forEach(function(btn){
+      btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
+    });
     root.querySelectorAll('[data-act="edit-pedido-planta"]').forEach(function(btn){
       btn.addEventListener("click", function(){
         var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
