@@ -289,6 +289,15 @@
   .autocomplete-item .n{font-weight:600;}
   .autocomplete-item .m{color:var(--ink-mute);font-size:13px;}
 
+  .planta-combo{position:relative;flex:1;}
+  .planta-combo-list{
+    position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:var(--radius);margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:var(--shadow);z-index:20;
+  }
+  .planta-combo-item{padding:9px 12px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .planta-combo-item:hover{background:var(--surface-2);}
+  .planta-combo-empty{padding:12px;font-size:13px;color:var(--ink-mute);text-align:center;}
+
   @media (max-width:640px){
     .container{padding:16px 14px 60px;}
     .field-row{grid-template-columns:1fr;}
@@ -2194,7 +2203,10 @@
         var preco = precoDePlanta(it.planta);
         var linha = '<div class="item-linha" data-idx="'+idx+'">';
         linha += '<div class="item-linha-top">';
-        linha += '<select class="itPlanta" data-idx="'+idx+'">'+plantaOptionsAgrupadas(it.planta)+'</select>';
+        linha += '<div class="planta-combo">';
+        linha += '<input type="text" class="itPlantaInput" data-idx="'+idx+'" autocomplete="off" placeholder="Digite pra buscar a planta..." value="'+escapeHtml(it.planta||"")+'">';
+        linha += '<div class="planta-combo-list" id="plantaComboList_'+idx+'"></div>';
+        linha += '</div>';
         linha += '<input type="text" inputmode="numeric" class="itQtd" data-idx="'+idx+'" value="'+(it.qtd||1)+'" placeholder="Qtd">';
         if(itens.length > 1){
           linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover esta planta">'+ICON.trash+'</button>';
@@ -2206,12 +2218,38 @@
       }).join("");
       wrap.innerHTML = html2;
 
-      wrap.querySelectorAll(".itPlanta").forEach(function(sel){
-        sel.addEventListener("change", function(){
-          var idx = Number(sel.dataset.idx);
-          itens[idx].planta = sel.value;
-          renderItens();
-          recalcularTotal();
+      wrap.querySelectorAll(".itPlantaInput").forEach(function(inp){
+        var idx = Number(inp.dataset.idx);
+        var listEl = document.getElementById("plantaComboList_" + idx);
+
+        function mostrarSugestoes(){
+          var q = inp.value.trim().toLowerCase();
+          var matches = state.plantas.filter(function(p){ return !q || p.nome.toLowerCase().indexOf(q) !== -1; }).slice(0, 30);
+          if(matches.length === 0){
+            listEl.innerHTML = '<div class="planta-combo-empty">Nenhuma planta encontrada</div>';
+            return;
+          }
+          listEl.innerHTML = matches.map(function(p){
+            var catTag = p.categoria ? '<span class="tag '+categoriaTagClasse(p.categoria)+'">'+escapeHtml(p.categoria)+'</span>' : '';
+            return '<div class="planta-combo-item" data-nome="'+escapeHtml(p.nome)+'"><span>'+escapeHtml(p.nome)+'</span>'+catTag+'</div>';
+          }).join("");
+          listEl.querySelectorAll(".planta-combo-item").forEach(function(item){
+            item.addEventListener("mousedown", function(e){
+              e.preventDefault();
+              itens[idx].planta = item.dataset.nome;
+              renderItens();
+              recalcularTotal();
+            });
+          });
+        }
+
+        inp.addEventListener("focus", mostrarSugestoes);
+        inp.addEventListener("input", mostrarSugestoes);
+        inp.addEventListener("blur", function(){
+          setTimeout(function(){
+            listEl.innerHTML = "";
+            inp.value = itens[idx].planta || "";
+          }, 150);
         });
       });
       wrap.querySelectorAll(".itQtd").forEach(function(inp){
@@ -2275,6 +2313,8 @@
       var nome = pNome.value.trim();
       if(!nome){ toast("Informe o nome do cliente.", "err"); return; }
       if(itens.length === 0){ toast("Adicione ao menos uma planta.", "err"); return; }
+      var semPlanta = itens.some(function(it){ return !it.planta; });
+      if(semPlanta){ toast("Escolha uma planta da lista pra cada item (clique numa sugestão).", "err"); return; }
       var itensValidos = itens.filter(function(it){ return (Number(it.qtd)||0) > 0; });
       if(itensValidos.length === 0){ toast("Informe uma quantidade maior que zero.", "err"); return; }
 
