@@ -438,7 +438,7 @@
     }
     return fetch(state.apiUrl, {
       method: "POST",
-      body: JSON.stringify({ action: action, payload: payload || {} })
+      body: JSON.stringify({ action: action, payload: payload || {}, senha: senhaAtual })
     }).then(function(res){ return res.json(); })
       .then(function(json){
         if(!json.ok) throw new Error(json.error || "Erro desconhecido.");
@@ -1746,8 +1746,8 @@
     html += '<div class="toolbar">';
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="cpBusca" placeholder="Buscar tipo de planta" value="'+escapeHtml(state.buscaCadastroPlanta)+'"></div>';
     html += '  <div class="date-range-group">';
-    html += '  <label class="date-filter-label">Preço de<input type="number" min="0" step="0.01" id="cpPrecoMin" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMin)+'"></label>';
-    html += '  <label class="date-filter-label">até<input type="number" min="0" step="0.01" id="cpPrecoMax" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMax)+'"></label>';
+    html += '  <label class="date-filter-label">Preço de<input type="text" inputmode="decimal" id="cpPrecoMin" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMin)+'"></label>';
+    html += '  <label class="date-filter-label">até<input type="text" inputmode="decimal" id="cpPrecoMax" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMax)+'"></label>';
     html += '  </div>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovaPlanta">'+ICON.plus+' Novo tipo de planta</button>';
@@ -1903,7 +1903,13 @@
     var val = el.value;
     setTimeout(function(){
       var again = document.getElementById(el.id);
-      if(again){ again.focus(); again.value = val; again.setSelectionRange(val.length, val.length); }
+      if(!again) return;
+      again.focus();
+      again.value = val;
+      // setSelectionRange não é suportado em inputs type="number"/"date" (o navegador
+      // lança um erro) — sem essa proteção, o cursor volta pro início a cada tecla
+      // e os dígitos digitados saem invertidos.
+      try { again.setSelectionRange(val.length, val.length); } catch(e){}
     }, 0);
   }
 
@@ -1970,7 +1976,7 @@
         linha += '<select class="itCategoria" data-idx="'+idx+'">'+CATEGORIAS.map(function(cc){
           return '<option value="'+escapeHtml(cc.nome)+'"'+(cc.nome===it.categoria?' selected':'')+'>'+escapeHtml(cc.nome)+'</option>';
         }).join("")+'</select>';
-        linha += '<input type="number" class="itQtd" data-idx="'+idx+'" min="1" step="1" value="'+(it.qtd||1)+'" placeholder="Qtd">';
+        linha += '<input type="text" inputmode="numeric" class="itQtd" data-idx="'+idx+'" value="'+(it.qtd||1)+'" placeholder="Qtd">';
         if(itens.length > 1){
           linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover este tipo">'+ICON.trash+'</button>';
         }
@@ -2189,7 +2195,7 @@
         var linha = '<div class="item-linha" data-idx="'+idx+'">';
         linha += '<div class="item-linha-top">';
         linha += '<select class="itPlanta" data-idx="'+idx+'">'+plantaOptionsAgrupadas(it.planta)+'</select>';
-        linha += '<input type="number" class="itQtd" data-idx="'+idx+'" min="1" step="1" value="'+(it.qtd||1)+'" placeholder="Qtd">';
+        linha += '<input type="text" inputmode="numeric" class="itQtd" data-idx="'+idx+'" value="'+(it.qtd||1)+'" placeholder="Qtd">';
         if(itens.length > 1){
           linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover esta planta">'+ICON.trash+'</button>';
         }
@@ -2622,8 +2628,12 @@
       state.apiUrl = url;
       safeSet(STORAGE_KEY, url);
       closeModal();
-      testConnection();
-      loadAll();
+      if(senhaAtual){
+        testConnection();
+        loadAll();
+      } else {
+        mostrarTelaSenha();
+      }
     });
   }
 
@@ -2743,9 +2753,75 @@
   }
 
   // ---------------------------------------------------------------
+  // TELA DE SENHA (verificada de verdade pela planilha — nenhuma senha
+  // fica escrita neste arquivo)
+  // ---------------------------------------------------------------
+  document.getElementById("btnHelp").addEventListener("click", openHelpModal);
   document.getElementById("btnSettings").addEventListener("click", openSettingsModal);
   document.getElementById("btnRefresh").addEventListener("click", function(){ loadAll(); });
   document.getElementById("btnForcarUpdate").addEventListener("click", function(){ checarAtualizacaoPeriodica(true); });
+
+  var senhaAtual = null;
+
+  function iniciarAppLiberado(){
+    if(state.apiUrl){
+      loadAll();
+    } else {
+      openSettingsModal();
+    }
+    setTimeout(checarAtualizacaoPeriodica, 5000);
+    setInterval(checarAtualizacaoPeriodica, UPDATE_CHECK_INTERVAL_MS);
+  }
+
+  function mostrarTelaSenha(){
+    var html = '<div class="overlay" id="lockOverlay" style="z-index:300;background:rgba(24,32,20,0.9);">';
+    html += '<div class="modal modal-sm">';
+    html += '<div class="modal-head"><h2>Acesso restrito</h2></div>';
+    html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">Digite a senha para abrir o Aves Agro.</p>';
+    html += '<div class="field"><label>Senha</label><input type="password" id="senhaInput" placeholder="Senha" autocomplete="off"></div>';
+    html += '<p id="senhaErro" style="display:none;color:var(--red);font-size:13px;margin:-6px 0 12px;"></p>';
+    html += '<button class="btn btn-primary" id="btnEntrarSenha" style="width:100%;justify-content:center;">Entrar</button>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    var input = document.getElementById("senhaInput");
+    var erro = document.getElementById("senhaErro");
+    var btn = document.getElementById("btnEntrarSenha");
+    input.focus();
+
+    function tentar(){
+      var tentativa = input.value;
+      if(!tentativa) return;
+      if(!state.apiUrl){
+        // Ainda não há planilha configurada nesta máquina; não tem como
+        // validar a senha ainda. Deixa passar pra tela de configuração.
+        closeModal();
+        iniciarAppLiberado();
+        return;
+      }
+      erro.style.display = "none";
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      senhaAtual = tentativa;
+      api("getMeta").then(function(){
+        try { sessionStorage.setItem("aves_senha", tentativa); } catch(e){}
+        closeModal();
+        iniciarAppLiberado();
+      }).catch(function(err){
+        senhaAtual = null;
+        erro.textContent = (err.message && err.message.indexOf("Senha") > -1) ? "Senha incorreta. Tente de novo." : "Não foi possível verificar agora — confira sua conexão.";
+        erro.style.display = "block";
+        input.value = "";
+        input.focus();
+        btn.disabled = false; btn.textContent = "Entrar";
+      });
+    }
+
+    btn.addEventListener("click", tentar);
+    input.addEventListener("keydown", function(e){ if(e.key === "Enter") tentar(); });
+  }
+
+  var senhaSalva = null;
+  try { senhaSalva = sessionStorage.getItem("aves_senha"); } catch(e){}
 
   renderPedidos();
   renderClientes();
@@ -2753,14 +2829,15 @@
   renderPlantasPedidos();
   renderPlantasHistorico();
   renderCadastroPlantas();
-  if(state.apiUrl){
-    loadAll();
-  } else {
-    openSettingsModal();
-  }
 
-  setTimeout(checarAtualizacaoPeriodica, 5000);
-  setInterval(checarAtualizacaoPeriodica, UPDATE_CHECK_INTERVAL_MS);
+  if(!state.apiUrl){
+    iniciarAppLiberado();
+  } else if(senhaSalva){
+    senhaAtual = senhaSalva;
+    iniciarAppLiberado();
+  } else {
+    mostrarTelaSenha();
+  }
 
 })();
 </script>
