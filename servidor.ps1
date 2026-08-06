@@ -20,8 +20,8 @@ Write-Host "  Deixe esta janela aberta enquanto usa o app."
 Write-Host "  Para encerrar, feche esta janela."
 Write-Host ""
 
-# Abre o app em tela cheia de verdade (kiosk), no navegador padrao do
-# sistema (Edge ou Chrome) -- sem depender de posicao/tamanho de janela.
+# Abre o app numa janela normal (com moldura e controles), so que ja
+# maximizada -- nao e tela cheia de verdade (kiosk), so ocupa a tela toda.
 try {
     $appUrl = "http://localhost:$port/aves-vivas.html?v=" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
@@ -35,7 +35,7 @@ try {
     foreach ($c in $candidatos) { if (Test-Path $c) { $navegador = $c; break } }
 
     if ($navegador) {
-        Start-Process -FilePath $navegador -ArgumentList "--kiosk", "$appUrl", "--edge-kiosk-type=fullscreen", "--no-first-run" | Out-Null
+        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--start-maximized" | Out-Null
     } else {
         Start-Process $appUrl
     }
