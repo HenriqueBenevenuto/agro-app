@@ -315,8 +315,11 @@
   </div>
   <div class="topbar-actions">
     <div class="status-pill"><span class="status-dot" id="statusDot"></span><span id="statusText">Não conectado</span></div>
-    <button class="icon-btn" id="btnRefresh" title="Atualizar" aria-label="Atualizar">
+    <button class="icon-btn" id="btnRefresh" title="Atualizar dados" aria-label="Atualizar dados">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="icon-btn" id="btnForcarUpdate" title="Verificar atualização do app" aria-label="Verificar atualização do app">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
     </button>
     <button class="icon-btn" id="btnSettings" title="Configurações" aria-label="Configurações">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -2691,9 +2694,12 @@
       }).catch(function(){ return {}; });
   }
 
-  function checarAtualizacaoPeriodica(){
+  function checarAtualizacaoPeriodica(manual){
     carregarConfigUpdate().then(function(cfg){
-      if(!cfg.GITHUB_USER || !cfg.GITHUB_REPO || cfg.GITHUB_USER.indexOf("SEU-USUARIO") === 0) return;
+      if(!cfg.GITHUB_USER || !cfg.GITHUB_REPO || cfg.GITHUB_USER.indexOf("SEU-USUARIO") === 0){
+        if(manual) toast("config.txt não está configurado ainda.", "err");
+        return;
+      }
       var baseUrl = "https://raw.githubusercontent.com/" + cfg.GITHUB_USER + "/" + cfg.GITHUB_REPO + "/main/";
       Promise.all([
         fetch("version.txt?t=" + Date.now()).then(function(r){ return r.text(); }).catch(function(){ return "0"; }),
@@ -2701,12 +2707,16 @@
       ]).then(function(res){
         var local = parseVersaoTexto(res[0]);
         var remoto = parseVersaoTexto(res[1]);
-        if(remoto > local && avisoVersaoJaMostrado !== remoto){
+        if(remoto > local && (manual || avisoVersaoJaMostrado !== remoto)){
           avisoVersaoJaMostrado = remoto;
           fetch(baseUrl + "changelog.txt?t=" + Date.now()).then(function(r){ return r.ok ? r.text() : ""; }).catch(function(){ return ""; }).then(function(changelog){
             mostrarAvisoAtualizacao(baseUrl, changelog);
           });
+        } else if(manual){
+          toast("Você já está na versão mais recente.");
         }
+      }).catch(function(){
+        if(manual) toast("Não foi possível checar agora. Confira sua conexão.", "err");
       });
     });
   }
@@ -2735,6 +2745,7 @@
   // ---------------------------------------------------------------
   document.getElementById("btnSettings").addEventListener("click", openSettingsModal);
   document.getElementById("btnRefresh").addEventListener("click", function(){ loadAll(); });
+  document.getElementById("btnForcarUpdate").addEventListener("click", function(){ checarAtualizacaoPeriodica(true); });
 
   renderPedidos();
   renderClientes();
