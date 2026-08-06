@@ -34,7 +34,30 @@ try {
     foreach ($c in $candidatos) { if (Test-Path $c) { $navegador = $c; break } }
 
     if ($navegador) {
-        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--start-maximized" | Out-Null
+        $perfilProprio = Join-Path $scriptDir "PerfilNavegador"
+        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--user-data-dir=$perfilProprio", "--disable-session-crashed-bubble", "--no-first-run" | Out-Null
+
+        # O --start-maximized nao funciona direito junto com --app no
+        # Chrome/Edge (limitacao conhecida). Em vez disso, espera a janela
+        # aparecer e manda o Windows maximizar ela diretamente.
+        try {
+            Add-Type -Name Win32Max -Namespace AvesAgro -MemberDefinition @"
+[DllImport("user32.dll", CharSet=CharSet.Auto, SetLastError=true)]
+public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+"@
+            $hwnd = [IntPtr]::Zero
+            $tentativas = 0
+            while ($hwnd -eq [IntPtr]::Zero -and $tentativas -lt 25) {
+                Start-Sleep -Milliseconds 300
+                $hwnd = [AvesAgro.Win32Max]::FindWindow($null, "Agro Benevenuto - Encomendas")
+                $tentativas++
+            }
+            if ($hwnd -ne [IntPtr]::Zero) {
+                [AvesAgro.Win32Max]::ShowWindow($hwnd, 3) | Out-Null
+            }
+        } catch {}
     } else {
         Start-Process $appUrl
     }
