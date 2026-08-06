@@ -1178,12 +1178,13 @@
     html += '</div>';
 
     if(temItens){
-      html += '<p class="help" style="padding:0 20px 16px;margin:0;">Depois de mandar a mensagem pro fornecedor, clique em <b>Confirmar encomenda</b> pra atualizar o estoque com os totais abaixo — o app não tem como saber sozinho se a mensagem foi enviada, então essa confirmação é manual.</p>';
+      html += '<p class="help" style="padding:0 20px 16px;margin:0;">Marque quais tipos quer confirmar agora (por padrão, todos que têm algo a encomendar já vêm marcados — desmarque os que faltarem no fornecedor, por exemplo). Depois de mandar a mensagem pro fornecedor, clique em <b>Confirmar encomenda</b> pra atualizar o estoque só dos marcados — o app não tem como saber sozinho se a mensagem foi enviada, então essa confirmação é manual.</p>';
     }
 
-    html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th></tr></thead><tbody>';
+    html += '<table class="estoque-table"><thead><tr><th style="width:36px;"></th><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th></tr></thead><tbody>';
     linhas.forEach(function(l){
       html += '<tr data-row-cat="'+encodeURIComponent(l.categoria)+'">';
+      html += '<td>'+(l.total > 0 ? '<input type="checkbox" class="encomendaCheck" data-cat="'+encodeURIComponent(l.categoria)+'" checked>' : '')+'</td>';
       html += '<td data-label="Tipo de ave">'+escapeHtml(l.categoria)+'</td>';
       html += '<td data-label="Pedidos ativos">'+l.ativos+'</td>';
       html += '<td data-label="Extra desejada"><input type="text" inputmode="numeric" class="extraInput" id="extraInput_'+encodeURIComponent(l.categoria)+'" data-cat="'+encodeURIComponent(l.categoria)+'" data-ativos="'+l.ativos+'" value="'+l.extra+'" style="width:80px;"></td>';
@@ -1252,7 +1253,22 @@
     });
     var btnConfirmar = document.getElementById("btnConfirmarEncomenda");
     if(btnConfirmar){
-      btnConfirmar.addEventListener("click", function(){ confirmarEncomenda(buildEncomendasLinhas()); });
+      btnConfirmar.addEventListener("click", function(){
+        var linhasAtuais = buildEncomendasLinhas();
+        var marcadas = [];
+        root.querySelectorAll(".encomendaCheck").forEach(function(chk){
+          if(chk.checked){
+            var cat = decodeURIComponent(chk.dataset.cat);
+            var linha = linhasAtuais.filter(function(l){ return l.categoria === cat; })[0];
+            if(linha && linha.total > 0) marcadas.push(linha);
+          }
+        });
+        if(marcadas.length === 0){
+          toast("Marque ao menos um tipo de ave pra confirmar.", "err");
+          return;
+        }
+        confirmarEncomenda(marcadas);
+      });
     }
     var btnHistorico = document.getElementById("btnHistoricoEncomendas");
     if(btnHistorico){
@@ -3034,7 +3050,8 @@
       html += helpSection(ICON.stock, "Quanto pedir do fornecedor", '<p>Essa aba ajuda a calcular quantas aves encomendar do fornecedor, somando o que já está em <b>pedidos ativos</b> com uma quantidade extra que você quiser pedir a mais (por exemplo, pra repor estoque).</p><ul>'
         + '<li>Clique no campo "Extra desejada" de uma linha e digite a quantidade — não precisa abrir nada, salva sozinho. O total (pedidos ativos + extra) é calculado na hora.</li>'
         + '<li>O botão verde de WhatsApp monta a mensagem com a lista de tudo que precisa encomendar e manda pro fornecedor — mas só abre o WhatsApp, não muda nada no app.</li>'
-        + '<li>Depois de mandar a mensagem de verdade, clique em <b>Confirmar encomenda</b>: aí sim o app atualiza o <b>Estoque</b> (na aba Pedidos) com os totais calculados, zera a "Extra desejada", e já abre a impressão de uma lista com todos os pedidos ativos (cliente, tipos de ave e valor) — útil pra separar os pedidos quando a encomenda chegar.</li>'
+        + '<li>Cada linha da tabela tem uma caixinha de seleção — por padrão vêm todas marcadas. Se o fornecedor não conseguir entregar algum tipo, desmarque ele antes de confirmar: só os marcados têm o estoque atualizado.</li>'
+        + '<li>Depois de mandar a mensagem de verdade, clique em <b>Confirmar encomenda</b>: aí sim o app atualiza o <b>Estoque</b> (na aba Pedidos) com os totais dos tipos marcados, zera a "Extra desejada" deles, e já abre a impressão de uma lista com todos os pedidos ativos (cliente, tipos de ave e valor) — útil pra separar os pedidos quando a encomenda chegar.</li>'
         + '</ul>');
       html += helpSection(ICON.check, "Conferir o que chegou", '<p>Depois que a encomenda chega, use o campo <b>Recebido</b> em cada tipo (logo abaixo da tabela, na "Última encomenda confirmada") pra anotar quantas aves realmente vieram.</p><ul>'
         + '<li>O app compara com o que foi pedido e mostra um aviso: <b>Certo</b>, <b>Faltou X</b> ou <b>Sobrou X</b>.</li>'
