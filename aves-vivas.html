@@ -2350,7 +2350,7 @@
         linha += '<select class="itCategoria" data-idx="'+idx+'">'+CATEGORIAS.map(function(cc){
           return '<option value="'+escapeHtml(cc.nome)+'"'+(cc.nome===it.categoria?' selected':'')+'>'+escapeHtml(cc.nome)+'</option>';
         }).join("")+'</select>';
-        linha += '<input type="text" inputmode="numeric" class="itQtd" data-idx="'+idx+'" value="'+(it.qtd===0||it.qtd===undefined||it.qtd===null?"":it.qtd)+'" placeholder="Qtd">';
+        linha += '<input type="text" inputmode="numeric" class="itQtd" id="itQtd_'+idx+'" data-idx="'+idx+'" value="'+(it.qtd===0||it.qtd===undefined||it.qtd===null?"":it.qtd)+'" placeholder="Qtd">';
         if(itens.length > 1){
           linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover este tipo">'+ICON.trash+'</button>';
         }
@@ -2572,7 +2572,7 @@
         linha += '<input type="text" class="itPlantaInput" data-idx="'+idx+'" autocomplete="off" placeholder="Digite pra buscar a planta..." value="'+escapeHtml(it.planta||"")+'">';
         linha += '<div class="planta-combo-list" id="plantaComboList_'+idx+'"></div>';
         linha += '</div>';
-        linha += '<input type="text" inputmode="numeric" class="itQtd" data-idx="'+idx+'" value="'+(it.qtd===0||it.qtd===undefined||it.qtd===null?"":it.qtd)+'" placeholder="Qtd">';
+        linha += '<input type="text" inputmode="numeric" class="itQtd" id="itQtd_'+idx+'" data-idx="'+idx+'" value="'+(it.qtd===0||it.qtd===undefined||it.qtd===null?"":it.qtd)+'" placeholder="Qtd">';
         if(itens.length > 1){
           linha += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost itRemove" data-idx="'+idx+'" title="Remover esta planta">'+ICON.trash+'</button>';
         }
