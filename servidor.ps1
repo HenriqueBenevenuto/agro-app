@@ -1,14 +1,6 @@
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $port = 5502
 
-# Trava de instancia unica (mais confiavel que testar a porta): so uma
-# copia do Aves Agro roda por vez. Se outra ja estiver rodando, so abre
-# mais uma aba apontando pra ela e encerra esta, sem duplicar nada.
-$mutex = New-Object System.Threading.Mutex($false, "Global\AvesAgroServidorMutex")
-if (-not $mutex.WaitOne(0)) {
-    exit
-}
-
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Start()
@@ -19,52 +11,6 @@ Write-Host "  Deixe esta janela aberta enquanto usa o app."
 Write-Host "  Para encerrar, feche esta janela."
 Write-Host ""
 
-# Abre o app numa janela normal (com moldura e controles), so que ja
-# maximizada -- nao e tela cheia de verdade (kiosk), so ocupa a tela toda.
-try {
-    $appUrl = "http://localhost:$port/aves-vivas.html?v=" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-
-    $candidatos = @(
-        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles(x86)")) "Microsoft\Edge\Application\msedge.exe"),
-        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles")) "Microsoft\Edge\Application\msedge.exe"),
-        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles")) "Google\Chrome\Application\chrome.exe"),
-        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles(x86)")) "Google\Chrome\Application\chrome.exe")
-    )
-    $navegador = $null
-    foreach ($c in $candidatos) { if (Test-Path $c) { $navegador = $c; break } }
-
-    if ($navegador) {
-        $perfilProprio = Join-Path $scriptDir "PerfilNavegador"
-        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--user-data-dir=$perfilProprio", "--disable-session-crashed-bubble", "--no-first-run" | Out-Null
-
-        # O --start-maximized nao funciona direito junto com --app no
-        # Chrome/Edge (limitacao conhecida). Em vez disso, espera a janela
-        # aparecer e manda o Windows maximizar ela diretamente.
-        try {
-            Add-Type -Name Win32Max -Namespace AvesAgro -MemberDefinition @"
-[DllImport("user32.dll", CharSet=CharSet.Auto, SetLastError=true)]
-public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-[DllImport("user32.dll")]
-public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-"@
-            $hwnd = [IntPtr]::Zero
-            $tentativas = 0
-            while ($hwnd -eq [IntPtr]::Zero -and $tentativas -lt 25) {
-                Start-Sleep -Milliseconds 300
-                $hwnd = [AvesAgro.Win32Max]::FindWindow($null, "Agro Benevenuto - Encomendas")
-                $tentativas++
-            }
-            if ($hwnd -ne [IntPtr]::Zero) {
-                [AvesAgro.Win32Max]::ShowWindow($hwnd, 3) | Out-Null
-            }
-        } catch {}
-    } else {
-        Start-Process $appUrl
-    }
-} catch {
-    Start-Process "http://localhost:$port/aves-vivas.html"
-}
-
 while ($listener.IsListening) {
     $context = $listener.GetContext()
     $request = $context.Request
@@ -73,18 +19,7 @@ while ($listener.IsListening) {
         $localPath = $request.Url.LocalPath.TrimStart("/")
         if ([string]::IsNullOrEmpty($localPath)) { $localPath = "aves-vivas.html" }
 
-        if ($localPath -eq "__fechar__") {
-            # A pagina avisou que a janela foi fechada -- desliga o
-            # servidor tambem, pra nao ficar rodando escondido.
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes("ok")
-            $response.ContentType = "text/plain; charset=utf-8"
-            $response.ContentLength64 = $bytes.Length
-            $response.OutputStream.Write($bytes, 0, $bytes.Length)
-            $response.OutputStream.Close()
-            try { $listener.Stop() } catch {}
-            try { $mutex.ReleaseMutex() } catch {}
-            [Environment]::Exit(0)
-        } elseif ($localPath -eq "__abrir__") {
+        if ($localPath -eq "__abrir__") {
             # Abre um link usando o programa padrao do sistema (navegador
             # preferido, ou o WhatsApp Desktop se estiver instalado e for
             # o handler registrado) -- em vez de abrir dentro da propria
