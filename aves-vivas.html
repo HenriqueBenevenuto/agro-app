@@ -1007,9 +1007,16 @@
     html += '<div class="estoque-head" style="cursor:default;">';
     html += '<div><div class="estoque-head-label">Total a encomendar do fornecedor</div><div class="estoque-total">'+totalGeral+' aves</div></div>';
     if(temItens){
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
       html += '<button class="btn btn-primary btn-whatsapp-fornecedor" id="btnWhatsFornecedor" data-wa="'+encodeURIComponent(buildWhatsAppLinkFornecedor(linhas))+'">'+ICON.whatsapp+' Enviar pro fornecedor</button>';
+      html += '<button class="btn" id="btnConfirmarEncomenda">'+ICON.check+' Confirmar encomenda</button>';
+      html += '</div>';
     }
     html += '</div>';
+
+    if(temItens){
+      html += '<p class="help" style="padding:0 20px 16px;margin:0;">Depois de mandar a mensagem pro fornecedor, clique em <b>Confirmar encomenda</b> pra atualizar o estoque com os totais abaixo — o app não tem como saber sozinho se a mensagem foi enviada, então essa confirmação é manual.</p>';
+    }
 
     html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th><th></th></tr></thead><tbody>';
     linhas.forEach(function(l){
@@ -1032,6 +1039,37 @@
     });
     root.querySelectorAll('[data-wa]').forEach(function(btn){
       btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
+    });
+    var btnConfirmar = document.getElementById("btnConfirmarEncomenda");
+    if(btnConfirmar){
+      btnConfirmar.addEventListener("click", function(){ confirmarEncomenda(linhas); });
+    }
+  }
+
+  function confirmarEncomenda(linhas){
+    var comItens = linhas.filter(function(l){ return l.total > 0; });
+    if(comItens.length === 0) return;
+    var corpo = 'Isso vai atualizar o <b>estoque</b> (aba Pedidos) com os totais abaixo, e zerar a "Extra desejada" de cada um — use depois de já ter mandado a encomenda pro fornecedor:<br><br>'
+      + comItens.map(function(l){ return "• " + escapeHtml(l.categoria) + ": " + l.total; }).join("<br>");
+    confirmModal("Confirmar encomenda", corpo, "Confirmar", function(){
+      var promessa = Promise.resolve();
+      comItens.forEach(function(l){
+        promessa = promessa.then(function(){
+          return api("setEstoqueTotal", { categoria: l.categoria, total: l.total }).then(function(data){
+            state.estoque = data || state.estoque;
+            return api("setEncomendaExtra", { categoria: l.categoria, extra: 0 });
+          }).then(function(data){
+            state.encomendasExtras = data || state.encomendasExtras;
+          });
+        });
+      });
+      promessa.then(function(){
+        toast("Encomenda confirmada! Estoque atualizado.");
+        renderEncomendas();
+        renderPedidos();
+      }).catch(function(err){
+        toast(err.message, "err");
+      });
     });
   }
 
@@ -2724,7 +2762,8 @@
     } else if(chave === "aves-encomendas"){
       html += helpSection(ICON.stock, "Quanto pedir do fornecedor", '<p>Essa aba ajuda a calcular quantas aves encomendar do fornecedor, somando o que já está em <b>pedidos ativos</b> com uma quantidade extra que você quiser pedir a mais (por exemplo, pra repor estoque).</p><ul>'
         + '<li>Clique no lápis '+ICON.edit+' de uma linha pra informar a quantidade extra daquele tipo. O total (pedidos ativos + extra) é calculado sozinho.</li>'
-        + '<li>O botão verde de WhatsApp no topo já monta uma mensagem com a lista de tudo que precisa encomendar e manda direto pro fornecedor.</li>'
+        + '<li>O botão verde de WhatsApp monta a mensagem com a lista de tudo que precisa encomendar e manda pro fornecedor — mas só abre o WhatsApp, não muda nada no app.</li>'
+        + '<li>Depois de mandar a mensagem de verdade, clique em <b>Confirmar encomenda</b>: aí sim o app atualiza o <b>Estoque</b> (na aba Pedidos) com os totais calculados, e zera a "Extra desejada". Isso é manual de propósito, porque o app não tem como saber se a mensagem foi realmente enviada pelo WhatsApp.</li>'
         + '</ul>');
 
     } else if(chave === "aves-historico"){
