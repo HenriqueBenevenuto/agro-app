@@ -65,6 +65,7 @@
     display:flex;align-items:center;gap:7px;font-size:14px;color:#C9D6C4;
     padding:8px 13px;border-radius:20px;background:rgba(255,255,255,0.06);
   }
+  .version-tag{font-size:12px;color:#8FA688;font-weight:600;letter-spacing:.02em;}
 
   .container{max-width:1080px;margin:0 auto;padding:28px 24px 80px;}
 
@@ -323,6 +324,7 @@
     </div>
   </div>
   <div class="topbar-actions">
+    <span class="version-tag" id="versaoAtual"></span>
     <div class="status-pill"><span class="status-dot" id="statusDot"></span><span id="statusText">Não conectado</span></div>
     <button class="icon-btn" id="btnRefresh" title="Atualizar dados" aria-label="Atualizar dados">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
@@ -2455,6 +2457,7 @@
     html += '<div class="field"><label>Telefone</label><input type="tel" id="cTelefone" placeholder="(54) 99999-9999" value="'+escapeHtml(cliente?cliente.telefone:"")+'"></div>';
     html += '<div class="field"><label>Endereço</label><input type="text" id="cEndereco" placeholder="Endereço completo" value="'+escapeHtml(cliente?cliente.endereco:"")+'"></div>';
     html += '<div class="field"><label>Município</label><input type="text" id="cMunicipio" placeholder="Município" value="'+escapeHtml(cliente?cliente.municipio:"")+'"></div>';
+    html += '<p id="clienteErro" style="display:none;background:var(--red-soft);color:var(--red);border-radius:var(--radius);padding:11px 14px;font-size:13.5px;font-weight:600;margin:0 0 14px;"></p>';
     html += '<div class="modal-actions"><button class="btn" id="mCancelC">Cancelar</button><button class="btn btn-primary" id="mSaveC">'+(editing?"Salvar alterações":"Adicionar cliente")+'</button></div>';
     html += '</div></div>';
     document.getElementById(targetRoot).innerHTML = html;
@@ -2467,6 +2470,8 @@
     ["cNome","cTelefone","cEndereco","cMunicipio"].forEach(function(id){
       document.getElementById(id).addEventListener("input", function(){
         if(this.value.trim()) this.style.borderColor = "";
+        var algumVazio = ["cNome","cTelefone","cEndereco","cMunicipio"].some(function(cid){ return !document.getElementById(cid).value.trim(); });
+        if(!algumVazio) document.getElementById("clienteErro").style.display = "none";
       });
     });
 
@@ -2484,10 +2489,13 @@
         el.style.borderColor = vazio ? "var(--red)" : "";
         if(vazio) faltando.push(c.label);
       });
+      var erroEl = document.getElementById("clienteErro");
       if(faltando.length > 0){
-        toast("Preencha: " + faltando.join(", "), "err");
+        erroEl.textContent = "Impossível finalizar o cadastro. Falta preencher: " + faltando.join(", ") + ".";
+        erroEl.style.display = "block";
         return;
       }
+      erroEl.style.display = "none";
 
       var nome = document.getElementById("cNome").value.trim();
       var payload = {
@@ -2885,6 +2893,10 @@
 
   var senhaSalva = null;
   try { senhaSalva = sessionStorage.getItem("aves_senha"); } catch(e){}
+
+  fetch("version.txt?t=" + Date.now()).then(function(r){ return r.ok ? r.text() : ""; }).then(function(v){
+    if(v && v.trim()) document.getElementById("versaoAtual").textContent = "v" + v.trim();
+  }).catch(function(){});
 
   renderPedidos();
   renderClientes();
