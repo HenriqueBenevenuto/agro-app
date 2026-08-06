@@ -1,16 +1,13 @@
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $port = 5502
 
-# Se ja tiver um Aves Agro rodando (outra instancia desse mesmo servidor
-# nessa porta), nao tenta abrir tudo de novo -- evita abrir duas janelas.
-try {
-    $testeConexao = New-Object System.Net.Sockets.TcpClient
-    $testeConexao.Connect("localhost", $port)
-    $testeConexao.Close()
+# Trava de instancia unica (mais confiavel que testar a porta): so uma
+# copia do Aves Agro roda por vez. Se outra ja estiver rodando, so abre
+# mais uma aba apontando pra ela e encerra esta, sem duplicar nada.
+$mutex = New-Object System.Threading.Mutex($false, "Global\AvesAgroServidorMutex")
+if (-not $mutex.WaitOne(0)) {
     Start-Process "http://localhost:$port/aves-vivas.html"
     exit
-} catch {
-    # Ninguem respondendo nessa porta ainda -- segue o fluxo normal abaixo.
 }
 
 $listener = New-Object System.Net.HttpListener
@@ -23,8 +20,8 @@ Write-Host "  Deixe esta janela aberta enquanto usa o app."
 Write-Host "  Para encerrar, feche esta janela."
 Write-Host ""
 
-# Abre o app maximizado (tela cheia), no navegador padrao do sistema
-# (Edge ou Chrome).
+# Abre o app em tela cheia de verdade (kiosk), no navegador padrao do
+# sistema (Edge ou Chrome) -- sem depender de posicao/tamanho de janela.
 try {
     $appUrl = "http://localhost:$port/aves-vivas.html?v=" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
@@ -38,7 +35,7 @@ try {
     foreach ($c in $candidatos) { if (Test-Path $c) { $navegador = $c; break } }
 
     if ($navegador) {
-        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--start-maximized" | Out-Null
+        Start-Process -FilePath $navegador -ArgumentList "--kiosk", "$appUrl", "--edge-kiosk-type=fullscreen", "--no-first-run" | Out-Null
     } else {
         Start-Process $appUrl
     }
