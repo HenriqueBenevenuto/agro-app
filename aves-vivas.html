@@ -114,6 +114,8 @@
   .date-filter-label input[type=date]{padding:9px 10px;font-size:14px;}
 
   .estoque-card{padding:0;overflow:hidden;margin-bottom:18px;}
+  .categoria-planta-card{padding:0;overflow:hidden;margin-bottom:12px;}
+  .categoria-planta-card .estoque-head{padding:14px 18px;}
   .estoque-head{
     display:flex;align-items:center;justify-content:space-between;width:100%;
     padding:20px 22px;border:none;background:none;cursor:pointer;text-align:left;font-family:inherit;
@@ -408,7 +410,10 @@
     histPlantaBusca: "",
     histPlantaDataDe: "",
     histPlantaDataAte: "",
-    buscaCadastroPlanta: ""
+    buscaCadastroPlanta: "",
+    cadastroPrecoMin: "",
+    cadastroPrecoMax: "",
+    categoriasExpandidasPlantas: {}
   };
 
   function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
@@ -1412,11 +1417,15 @@
   // PLANTAS — CADASTRO (catálogo de tipos + preço)
   // ---------------------------------------------------------------
   function filteredCadastroPlantas(){
+    var min = state.cadastroPrecoMin !== "" ? Number(state.cadastroPrecoMin) : null;
+    var max = state.cadastroPrecoMax !== "" ? Number(state.cadastroPrecoMax) : null;
     return state.plantas.filter(function(p){
       if(state.buscaCadastroPlanta){
         var q = state.buscaCadastroPlanta.toLowerCase();
         if(p.nome.toLowerCase().indexOf(q) === -1) return false;
       }
+      if(min !== null && !isNaN(min) && p.preco < min) return false;
+      if(max !== null && !isNaN(max) && p.preco > max) return false;
       return true;
     }).sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
   }
@@ -1728,35 +1737,74 @@
     var html = '';
     html += '<div class="toolbar">';
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="cpBusca" placeholder="Buscar tipo de planta" value="'+escapeHtml(state.buscaCadastroPlanta)+'"></div>';
+    html += '  <label class="date-filter-label">Preço de<input type="number" min="0" step="0.01" id="cpPrecoMin" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMin)+'"></label>';
+    html += '  <label class="date-filter-label">até<input type="number" min="0" step="0.01" id="cpPrecoMax" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMax)+'"></label>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovaPlanta">'+ICON.plus+' Novo tipo de planta</button>';
     html += '  <button class="btn" id="btnImportarPlantas">'+ICON.stock+' Importar lista de preços</button>';
     html += '</div>';
 
-    html += '<div class="card">';
+    var filtroAtivo = !!(state.buscaCadastroPlanta || state.cadastroPrecoMin !== "" || state.cadastroPrecoMax !== "");
+
+    function buildTabelaPlantas(itens, mostrarCategoria){
+      var t = '<table><thead><tr><th>Nome</th>'+(mostrarCategoria?'<th>Categoria</th>':'')+'<th>Preço/unidade</th><th></th></tr></thead><tbody>';
+      itens.forEach(function(p){
+        t += '<tr>';
+        t += '<td data-label="Nome">'+escapeHtml(p.nome)+'</td>';
+        if(mostrarCategoria) t += '<td data-label="Categoria">'+(p.categoria?'<span class="tag '+categoriaTagClasse(p.categoria)+'">'+escapeHtml(p.categoria)+'</span>':'<span class="cell-sub">—</span>')+'</td>';
+        t += '<td data-label="Preço/unidade">'+formatMoeda(p.preco)+'</td>';
+        t += '<td><div class="row-actions">';
+        t += '<button class="btn btn-icon btn-sm" data-act="edit-planta" data-row="'+p.rowIndex+'" title="Editar">'+ICON.edit+'</button>';
+        t += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-planta" data-row="'+p.rowIndex+'" title="Remover">'+ICON.trash+'</button>';
+        t += '</div></td>';
+        t += '</tr>';
+      });
+      t += '</tbody></table>';
+      return t;
+    }
+
     if(state.loadingPlantas){
-      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+      html += '<div class="card"><div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div></div>';
     } else {
       var list = filteredCadastroPlantas();
       if(list.length === 0){
-        html += emptyState(ICON.stock, "Nenhum tipo de planta cadastrado", "Cadastre o primeiro tipo de planta e seu preço para começar a lançar pedidos.");
+        html += '<div class="card">'+emptyState(ICON.stock, "Nenhum tipo de planta encontrado", state.plantas.length===0 ? "Cadastre o primeiro tipo de planta e seu preço para começar a lançar pedidos." : "Ajuste os filtros para ver outros tipos.")+'</div>';
+      } else if(filtroAtivo){
+        // Filtro ativo: mostra tudo que bateu, numa lista só, sem os dropdowns por categoria.
+        html += '<div class="card">'+buildTabelaPlantas(list, true)+'</div>';
       } else {
-        html += '<table><thead><tr><th>Nome</th><th>Categoria</th><th>Preço/unidade</th><th></th></tr></thead><tbody>';
+        var porCategoria = {};
+        var semCategoria = [];
         list.forEach(function(p){
-          html += '<tr>';
-          html += '<td data-label="Nome">'+escapeHtml(p.nome)+'</td>';
-          html += '<td data-label="Categoria">'+(p.categoria?'<span class="tag '+categoriaTagClasse(p.categoria)+'">'+escapeHtml(p.categoria)+'</span>':'<span class="cell-sub">—</span>')+'</td>';
-          html += '<td data-label="Preço/unidade">'+formatMoeda(p.preco)+'</td>';
-          html += '<td><div class="row-actions">';
-          html += '<button class="btn btn-icon btn-sm" data-act="edit-planta" data-row="'+p.rowIndex+'" title="Editar">'+ICON.edit+'</button>';
-          html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-planta" data-row="'+p.rowIndex+'" title="Remover">'+ICON.trash+'</button>';
-          html += '</div></td>';
-          html += '</tr>';
+          if(!p.categoria){ semCategoria.push(p); return; }
+          if(!porCategoria[p.categoria]) porCategoria[p.categoria] = [];
+          porCategoria[p.categoria].push(p);
         });
-        html += '</tbody></table>';
+
+        Object.keys(porCategoria).sort().forEach(function(cat){
+          var itens = porCategoria[cat];
+          var expandido = !!state.categoriasExpandidasPlantas[cat];
+          html += '<div class="card categoria-planta-card">';
+          html += '<button type="button" class="estoque-head" data-cat-toggle="'+encodeURIComponent(cat)+'">';
+          html += '<div><span class="tag '+categoriaTagClasse(cat)+'">'+escapeHtml(cat)+'</span> <span class="cell-sub">'+itens.length+' tipo'+(itens.length===1?'':'s')+'</span></div>';
+          html += '<span class="estoque-chevron'+(expandido?' expandido':'')+'">'+ICON.chevron+'</span>';
+          html += '</button>';
+          if(expandido) html += buildTabelaPlantas(itens, false);
+          html += '</div>';
+        });
+
+        if(semCategoria.length){
+          var expandidoSemCat = !!state.categoriasExpandidasPlantas["__sem_categoria__"];
+          html += '<div class="card categoria-planta-card">';
+          html += '<button type="button" class="estoque-head" data-cat-toggle="__sem_categoria__">';
+          html += '<div><span class="cell-sub">Sem categoria</span> <span class="cell-sub">'+semCategoria.length+' tipo'+(semCategoria.length===1?'':'s')+'</span></div>';
+          html += '<span class="estoque-chevron'+(expandidoSemCat?' expandido':'')+'">'+ICON.chevron+'</span>';
+          html += '</button>';
+          if(expandidoSemCat) html += buildTabelaPlantas(semCategoria, false);
+          html += '</div>';
+        }
       }
     }
-    html += '</div>';
     root.innerHTML = html;
 
     document.getElementById("countCadastroPlantas").textContent = state.plantas.length;
@@ -1765,6 +1813,18 @@
     document.getElementById("btnImportarPlantas").addEventListener("click", function(){ importarListaDePrecos(); });
     var cpBusca = document.getElementById("cpBusca");
     cpBusca.addEventListener("input", function(e){ state.buscaCadastroPlanta = e.target.value; renderCadastroPlantas(); preserveFocus(cpBusca); });
+    var cpPrecoMin = document.getElementById("cpPrecoMin");
+    cpPrecoMin.addEventListener("input", function(e){ state.cadastroPrecoMin = e.target.value; renderCadastroPlantas(); preserveFocus(cpPrecoMin); });
+    var cpPrecoMax = document.getElementById("cpPrecoMax");
+    cpPrecoMax.addEventListener("input", function(e){ state.cadastroPrecoMax = e.target.value; renderCadastroPlantas(); preserveFocus(cpPrecoMax); });
+
+    root.querySelectorAll('[data-cat-toggle]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var cat = decodeURIComponent(btn.dataset.catToggle);
+        state.categoriasExpandidasPlantas[cat] = !state.categoriasExpandidasPlantas[cat];
+        renderCadastroPlantas();
+      });
+    });
 
     root.querySelectorAll('[data-act="edit-planta"]').forEach(function(btn){
       btn.addEventListener("click", function(){
