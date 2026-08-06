@@ -2464,9 +2464,32 @@
     document.getElementById("mCancelC").addEventListener("click", doClose);
     overlayEl.addEventListener("click", function(e){ if(e.target === overlayEl) doClose(); });
 
+    ["cNome","cTelefone","cEndereco","cMunicipio"].forEach(function(id){
+      document.getElementById(id).addEventListener("input", function(){
+        if(this.value.trim()) this.style.borderColor = "";
+      });
+    });
+
     document.getElementById("mSaveC").addEventListener("click", function(){
+      var campos = [
+        { id: "cNome", label: "Nome" },
+        { id: "cTelefone", label: "Telefone" },
+        { id: "cEndereco", label: "Endereço" },
+        { id: "cMunicipio", label: "Município" }
+      ];
+      var faltando = [];
+      campos.forEach(function(c){
+        var el = document.getElementById(c.id);
+        var vazio = !el.value.trim();
+        el.style.borderColor = vazio ? "var(--red)" : "";
+        if(vazio) faltando.push(c.label);
+      });
+      if(faltando.length > 0){
+        toast("Preencha: " + faltando.join(", "), "err");
+        return;
+      }
+
       var nome = document.getElementById("cNome").value.trim();
-      if(!nome){ toast("Informe o nome do cliente.", "err"); return; }
       var payload = {
         rowIndex: editing ? cliente.rowIndex : undefined,
         nome: nome,
@@ -2818,7 +2841,7 @@
     html += '<div class="modal modal-sm">';
     html += '<div class="modal-head"><h2>Acesso restrito</h2></div>';
     html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">Digite a senha para abrir o Aves Agro.</p>';
-    html += '<div class="field"><label>Senha</label><input type="password" id="senhaInput" placeholder="Senha" autocomplete="off"></div>';
+    html += '<div class="field"><label>Senha</label><input type="text" id="senhaInput" placeholder="Senha" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="-webkit-text-security:disc;"></div>';
     html += '<p id="senhaErro" style="display:none;color:var(--red);font-size:13px;margin:-6px 0 12px;"></p>';
     html += '<button class="btn btn-primary" id="btnEntrarSenha" style="width:100%;justify-content:center;">Entrar</button>';
     html += '</div></div>';
