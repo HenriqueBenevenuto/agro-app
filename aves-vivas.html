@@ -356,9 +356,11 @@
     <div class="tabs">
       <button class="tab tab-aves active" data-view="pedidos">Pedidos <span class="count" id="countPedidos">0</span></button>
       <button class="tab tab-aves" data-view="historico">Histórico <span class="count" id="countHistorico">0</span></button>
+      <button class="tab tab-aves" data-view="encomendas">Encomendas</button>
     </div>
     <div id="viewPedidos"></div>
     <div id="viewHistorico" style="display:none;"></div>
+    <div id="viewEncomendas" style="display:none;"></div>
   </div>
 
   <div id="secaoPlantas" style="display:none;">
@@ -410,6 +412,7 @@
     histDataDe: "",
     histDataAte: "",
     estoque: {},
+    encomendasExtras: {},
     estoqueExpandido: false,
     precos: {},
     buscaClientes: "",
@@ -489,6 +492,7 @@
       state.clientes = (data && data.clientes) || [];
       state.pedidos = (data && data.pedidos) || [];
       state.estoque = (data && data.estoque) || {};
+      state.encomendasExtras = (data && data.encomendasExtras) || {};
       state.precos = (data && data.precos) || {};
       state.plantas = (data && data.plantas) || [];
       state.pedidosPlantas = (data && data.pedidosPlantas) || [];
@@ -503,6 +507,7 @@
       renderPlantasPedidos();
       renderPlantasHistorico();
       renderCadastroPlantas();
+      if(state.view === "encomendas") renderEncomendas();
     }).catch(function(err){
       state.loadingClientes = false;
       state.loadingPedidos = false;
@@ -515,6 +520,7 @@
       renderPlantasPedidos();
       renderPlantasHistorico();
       renderCadastroPlantas();
+      if(state.view === "encomendas") renderEncomendas();
       toast(err.message, "err");
     });
   }
@@ -523,6 +529,7 @@
     api("getEstoque").then(function(data){
       state.estoque = data || {};
       renderPedidos();
+      if(state.view === "encomendas") renderEncomendas();
     }).catch(function(err){
       toast(err.message, "err");
     });
@@ -564,11 +571,13 @@
       setStatus(true, "Conectado");
       renderPedidos();
       renderHistorico();
+      if(state.view === "encomendas") renderEncomendas();
     }).catch(function(err){
       state.loadingPedidos = false;
       setStatus(false, "Falha na conexão");
       renderPedidos();
       renderHistorico();
+      if(state.view === "encomendas") renderEncomendas();
       toast(err.message, "err");
     });
   }
@@ -946,6 +955,97 @@
         closeModal();
         renderPedidos();
         renderHistorico();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.textContent = "Salvar";
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // ENCOMENDAS (quanto pedir ao fornecedor: pedidos ativos + extra desejada)
+  // ---------------------------------------------------------------
+  var FORNECEDOR_TELEFONE = "54996034260";
+
+  function buildEncomendasLinhas(){
+    return CATEGORIAS.map(function(c){
+      var ativos = qtdPedidaAtiva(c.nome);
+      var extra = Number(state.encomendasExtras[c.nome]) || 0;
+      return { categoria: c.nome, ativos: ativos, extra: extra, total: ativos + extra };
+    });
+  }
+
+  function buildWhatsAppLinkFornecedor(linhas){
+    var comItens = linhas.filter(function(l){ return l.total > 0; });
+    var digitos = FORNECEDOR_TELEFONE.replace(/\D/g, "");
+    if(digitos.length <= 11) digitos = "55" + digitos;
+    var corpo = comItens.map(function(l){ return "• " + l.total + "x " + l.categoria; }).join("\n");
+    var msg = "Olá! Gostaríamos de fazer a encomenda das seguintes aves:\n\n" + corpo + "\n\nObrigado!";
+    return "https://wa.me/" + digitos + "?text=" + encodeURIComponent(msg);
+  }
+
+  function renderEncomendas(){
+    var root = document.getElementById("viewEncomendas");
+    if(!root) return;
+    var linhas = buildEncomendasLinhas();
+    var totalGeral = linhas.reduce(function(s,l){ return s + l.total; }, 0);
+    var temItens = linhas.some(function(l){ return l.total > 0; });
+
+    var html = '';
+    html += '<div class="card estoque-card" style="overflow:visible;">';
+    html += '<div class="estoque-head" style="cursor:default;">';
+    html += '<div><div class="estoque-head-label">Total a encomendar do fornecedor</div><div class="estoque-total">'+totalGeral+' aves</div></div>';
+    if(temItens){
+      html += '<a class="btn btn-primary btn-whatsapp-fornecedor" id="btnWhatsFornecedor" href="'+buildWhatsAppLinkFornecedor(linhas)+'" target="_blank" rel="noopener">'+ICON.whatsapp+' Enviar pro fornecedor</a>';
+    }
+    html += '</div>';
+
+    html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th><th></th></tr></thead><tbody>';
+    linhas.forEach(function(l){
+      html += '<tr>';
+      html += '<td data-label="Tipo de ave">'+escapeHtml(l.categoria)+'</td>';
+      html += '<td data-label="Pedidos ativos">'+l.ativos+'</td>';
+      html += '<td data-label="Extra desejada">'+l.extra+'</td>';
+      html += '<td data-label="Total a encomendar"><b>'+l.total+'</b></td>';
+      html += '<td><button class="btn btn-icon btn-sm" data-act="edit-extra" data-cat="'+encodeURIComponent(l.categoria)+'" title="Definir quantidade extra">'+ICON.edit+'</button></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    root.innerHTML = html;
+
+    root.querySelectorAll('[data-act="edit-extra"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openEncomendaExtraModal(decodeURIComponent(btn.dataset.cat));
+      });
+    });
+  }
+
+  function openEncomendaExtraModal(categoria){
+    var atual = Number(state.encomendasExtras[categoria]) || 0;
+    var ativos = qtdPedidaAtiva(categoria);
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-sm">';
+    html += '<div class="modal-head"><h2>Quantidade extra</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">'+escapeHtml(categoria)+'</p>';
+    html += '<div class="field"><label>Quantas a mais pedir do fornecedor</label><input type="text" inputmode="numeric" id="eeExtra" value="'+atual+'"></div>';
+    html += '<p class="help">Pedidos ativos desse tipo somam <b>'+ativos+'</b>. O total encomendado ao fornecedor vai ser '+ativos+' + esse valor extra.</p>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">Salvar</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("mSave").addEventListener("click", function(){
+      var extra = Number(document.getElementById("eeExtra").value);
+      if(isNaN(extra) || extra < 0){ toast("Informe um número válido.", "err"); return; }
+      var btn = document.getElementById("mSave");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      api("setEncomendaExtra", { categoria: categoria, extra: extra }).then(function(data){
+        state.encomendasExtras = data || {};
+        toast("Quantidade extra atualizada.");
+        closeModal();
+        renderEncomendas();
       }).catch(function(err){
         toast(err.message, "err");
         btn.disabled = false; btn.textContent = "Salvar";
@@ -2582,6 +2682,7 @@
     var titulos = {
       "aves-pedidos": "Ajuda — Aves · Pedidos",
       "aves-historico": "Ajuda — Aves · Histórico",
+      "aves-encomendas": "Ajuda — Aves · Encomendas",
       "plantas-pedidos": "Ajuda — Plantas · Pedidos",
       "plantas-historico": "Ajuda — Plantas · Histórico",
       "plantas-cadastro": "Ajuda — Plantas · Cadastro",
@@ -2598,6 +2699,12 @@
         + '<li>Clique no lápis '+ICON.edit+' em qualquer linha para editar, ou na lixeira '+ICON.trash+' para remover.</li>'
         + '<li>A busca no topo filtra por nome ou município enquanto você digita.</li>'
         + '<li>Essa lista de clientes é <b>compartilhada</b> entre Aves e Plantas — um cliente cadastrado de um lado já aparece disponível do outro.</li>'
+        + '</ul>');
+
+    } else if(chave === "aves-encomendas"){
+      html += helpSection(ICON.stock, "Quanto pedir do fornecedor", '<p>Essa aba ajuda a calcular quantas aves encomendar do fornecedor, somando o que já está em <b>pedidos ativos</b> com uma quantidade extra que você quiser pedir a mais (por exemplo, pra repor estoque).</p><ul>'
+        + '<li>Clique no lápis '+ICON.edit+' de uma linha pra informar a quantidade extra daquele tipo. O total (pedidos ativos + extra) é calculado sozinho.</li>'
+        + '<li>O botão verde de WhatsApp no topo já monta uma mensagem com a lista de tudo que precisa encomendar e manda direto pro fornecedor.</li>'
         + '</ul>');
 
     } else if(chave === "aves-historico"){
@@ -2724,7 +2831,7 @@
     });
   });
 
-  // Sub-abas dentro de Aves: Pedidos / Histórico
+  // Sub-abas dentro de Aves: Pedidos / Histórico / Encomendas
   document.querySelectorAll(".tab-aves").forEach(function(tab){
     tab.addEventListener("click", function(){
       document.querySelectorAll(".tab-aves").forEach(function(t){ t.classList.remove("active"); });
@@ -2732,6 +2839,8 @@
       state.view = tab.dataset.view;
       document.getElementById("viewPedidos").style.display = state.view === "pedidos" ? "" : "none";
       document.getElementById("viewHistorico").style.display = state.view === "historico" ? "" : "none";
+      document.getElementById("viewEncomendas").style.display = state.view === "encomendas" ? "" : "none";
+      if(state.view === "encomendas") renderEncomendas();
     });
   });
 
