@@ -1,6 +1,18 @@
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $port = 5502
 
+# Se ja tiver um Aves Agro rodando (outra instancia desse mesmo servidor
+# nessa porta), nao tenta abrir tudo de novo -- evita abrir duas janelas.
+try {
+    $testeConexao = New-Object System.Net.Sockets.TcpClient
+    $testeConexao.Connect("localhost", $port)
+    $testeConexao.Close()
+    Start-Process "http://localhost:$port/aves-vivas.html"
+    exit
+} catch {
+    # Ninguem respondendo nessa porta ainda -- segue o fluxo normal abaixo.
+}
+
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Start()
