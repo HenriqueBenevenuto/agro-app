@@ -3187,6 +3187,13 @@
     mostrarTelaSenha();
   }
 
+  // Avisa o servidor local pra se desligar sozinho quando a janela do
+  // app for fechada -- sem isso, o servidor continuaria rodando
+  // escondido, e reabrir o app pelo atalho pareceria nao fazer nada.
+  window.addEventListener("unload", function(){
+    try { navigator.sendBeacon("__fechar__"); } catch(e){}
+  });
+
 })();
 </script>
 </body>

@@ -73,7 +73,18 @@ while ($listener.IsListening) {
         $localPath = $request.Url.LocalPath.TrimStart("/")
         if ([string]::IsNullOrEmpty($localPath)) { $localPath = "aves-vivas.html" }
 
-        if ($localPath -eq "__abrir__") {
+        if ($localPath -eq "__fechar__") {
+            # A pagina avisou que a janela foi fechada -- desliga o
+            # servidor tambem, pra nao ficar rodando escondido.
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes("ok")
+            $response.ContentType = "text/plain; charset=utf-8"
+            $response.ContentLength64 = $bytes.Length
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            $response.OutputStream.Close()
+            try { $listener.Stop() } catch {}
+            try { $mutex.ReleaseMutex() } catch {}
+            [Environment]::Exit(0)
+        } elseif ($localPath -eq "__abrir__") {
             # Abre um link usando o programa padrao do sistema (navegador
             # preferido, ou o WhatsApp Desktop se estiver instalado e for
             # o handler registrado) -- em vez de abrir dentro da propria
