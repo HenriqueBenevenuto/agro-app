@@ -111,6 +111,7 @@
   .search-box svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-mute);pointer-events:none;width:17px;height:17px;}
 
   .date-filter-label{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;}
+  .date-range-group{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
   .date-filter-label input[type=date]{padding:9px 10px;font-size:14px;}
 
   .estoque-card{padding:0;overflow:hidden;margin-bottom:18px;}
@@ -1119,8 +1120,10 @@
     html += '  </select>';
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="hBusca" placeholder="Buscar por palavra-chave, nome, município..." value="'+escapeHtml(state.histBusca)+'"></div>';
     html += '  <div class="spacer"></div>';
+    html += '  <div class="date-range-group">';
     html += '  <label class="date-filter-label">De<input type="date" id="hDataDe" value="'+escapeHtml(state.histDataDe)+'"></label>';
     html += '  <label class="date-filter-label">Até<input type="date" id="hDataAte" value="'+escapeHtml(state.histDataAte)+'"></label>';
+    html += '  </div>';
     if(state.histDataDe || state.histDataAte || state.histCategoria !== "Todos" || state.histStatus !== "Todos" || state.histBusca){
       html += '  <button class="btn btn-sm" id="btnLimparHist">Limpar filtros</button>';
     }
@@ -1371,8 +1374,10 @@
     html += '  </select>';
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="hPlantaBusca" placeholder="Buscar por palavra-chave, nome, município..." value="'+escapeHtml(state.histPlantaBusca)+'"></div>';
     html += '  <div class="spacer"></div>';
+    html += '  <div class="date-range-group">';
     html += '  <label class="date-filter-label">De<input type="date" id="hPlantaDataDe" value="'+escapeHtml(state.histPlantaDataDe)+'"></label>';
     html += '  <label class="date-filter-label">Até<input type="date" id="hPlantaDataAte" value="'+escapeHtml(state.histPlantaDataAte)+'"></label>';
+    html += '  </div>';
     if(state.histPlantaDataDe || state.histPlantaDataAte || state.histPlantaCategoria !== "Todos" || state.histPlantaStatus !== "Todos" || state.histPlantaBusca){
       html += '  <button class="btn btn-sm" id="btnLimparHistPlanta">Limpar filtros</button>';
     }
@@ -1737,8 +1742,10 @@
     var html = '';
     html += '<div class="toolbar">';
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="cpBusca" placeholder="Buscar tipo de planta" value="'+escapeHtml(state.buscaCadastroPlanta)+'"></div>';
+    html += '  <div class="date-range-group">';
     html += '  <label class="date-filter-label">Preço de<input type="number" min="0" step="0.01" id="cpPrecoMin" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMin)+'"></label>';
     html += '  <label class="date-filter-label">até<input type="number" min="0" step="0.01" id="cpPrecoMax" style="width:90px;" value="'+escapeHtml(state.cadastroPrecoMax)+'"></label>';
+    html += '  </div>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovaPlanta">'+ICON.plus+' Novo tipo de planta</button>';
     html += '  <button class="btn" id="btnImportarPlantas">'+ICON.stock+' Importar lista de preços</button>';
