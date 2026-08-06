@@ -6,7 +6,6 @@ $port = 5502
 # mais uma aba apontando pra ela e encerra esta, sem duplicar nada.
 $mutex = New-Object System.Threading.Mutex($false, "Global\AvesAgroServidorMutex")
 if (-not $mutex.WaitOne(0)) {
-    Start-Process "http://localhost:$port/aves-vivas.html"
     exit
 }
 

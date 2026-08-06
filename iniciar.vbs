@@ -14,6 +14,31 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 
+' -------------------------------------------------------------
+' 0. SE JA ESTIVER RODANDO, NAO FAZ NADA (evita abrir duas janelas
+'    caso o atalho seja clicado duas vezes, ou disparado por engano
+'    mais de uma vez)
+' -------------------------------------------------------------
+Function JaRodando()
+    JaRodando = False
+    On Error Resume Next
+    Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+    Set colProcessos = wmi.ExecQuery("Select CommandLine from Win32_Process WHERE Name='powershell.exe'")
+    For Each objProcesso In colProcessos
+        If Not IsNull(objProcesso.CommandLine) Then
+            If InStr(1, objProcesso.CommandLine, "servidor.ps1", 1) > 0 Then
+                JaRodando = True
+                Exit For
+            End If
+        End If
+    Next
+    On Error Goto 0
+End Function
+
+If JaRodando() Then
+    WScript.Quit
+End If
+
 GITHUB_USER = GITHUB_USER_PADRAO
 GITHUB_REPO = GITHUB_REPO_PADRAO
 configPath = scriptDir & "\config.txt"
