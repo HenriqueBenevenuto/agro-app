@@ -11,6 +11,37 @@ Write-Host "  Deixe esta janela aberta enquanto usa o app."
 Write-Host "  Para encerrar, feche esta janela."
 Write-Host ""
 
+# Abre o app numa janela centralizada na tela principal, no navegador
+# padrao do sistema (Edge ou Chrome), em vez de deixar o Windows decidir
+# a posicao sozinho.
+try {
+    Add-Type -AssemblyName System.Windows.Forms
+    $tela = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $larguraJanela = 1280
+    $alturaJanela = 800
+    $posX = $tela.X + [Math]::Max(0, [int](($tela.Width - $larguraJanela) / 2))
+    $posY = $tela.Y + [Math]::Max(0, [int](($tela.Height - $alturaJanela) / 2))
+
+    $appUrl = "http://localhost:$port/aves-vivas.html?v=" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+    $candidatos = @(
+        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles(x86)")) "Microsoft\Edge\Application\msedge.exe"),
+        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles")) "Microsoft\Edge\Application\msedge.exe"),
+        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles")) "Google\Chrome\Application\chrome.exe"),
+        (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles(x86)")) "Google\Chrome\Application\chrome.exe")
+    )
+    $navegador = $null
+    foreach ($c in $candidatos) { if (Test-Path $c) { $navegador = $c; break } }
+
+    if ($navegador) {
+        Start-Process -FilePath $navegador -ArgumentList "--app=$appUrl", "--window-size=$larguraJanela,$alturaJanela", "--window-position=$posX,$posY"
+    } else {
+        Start-Process $appUrl
+    }
+} catch {
+    Start-Process "http://localhost:$port/aves-vivas.html"
+}
+
 while ($listener.IsListening) {
     $context = $listener.GetContext()
     $request = $context.Request

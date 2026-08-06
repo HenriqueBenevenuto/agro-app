@@ -1084,7 +1084,7 @@
     root.innerHTML = html;
 
     root.querySelectorAll(".recebidoInput").forEach(function(inp){
-      inp.addEventListener("input", function(){
+      inp.addEventListener("blur", function(){
         var categoria = decodeURIComponent(inp.dataset.cat);
         var pedido = Number(inp.dataset.pedido) || 0;
         var val = inp.value.trim() === "" ? null : (Number(inp.value) || 0);
@@ -1105,16 +1105,11 @@
         }
 
         if(val === null) return;
-        clearTimeout(encomendaExtraTimers["recebido_" + categoria]);
-        encomendaExtraTimers["recebido_" + categoria] = setTimeout(function(){
-          api("registrarRecebido", { categoria: categoria, recebido: val }).then(function(historico){
-            state.historicoEncomendas = historico || state.historicoEncomendas;
-            renderEncomendas();
-            preserveFocus(inp);
-          }).catch(function(err){
-            toast(err.message, "err");
-          });
-        }, 700);
+        api("registrarRecebido", { categoria: categoria, recebido: val }).then(function(historico){
+          state.historicoEncomendas = historico || state.historicoEncomendas;
+        }).catch(function(err){
+          toast(err.message, "err");
+        });
       });
     });
 
@@ -2916,10 +2911,12 @@
         + '</ul>');
 
     } else if(chave === "plantas-cadastro"){
-      html += helpSection(ICON.stock, "Cadastro de tipos de planta", '<p>Aqui você mantém a lista de plantas que vende, cada uma com seu preço por unidade.</p><ul>'
-        + '<li>Use <b>+ Novo tipo de planta</b> para cadastrar um nome e o preço.</li>'
-        + '<li>O lápis '+ICON.edit+' edita o nome/preço; a lixeira '+ICON.trash+' remove o tipo do cadastro (pedidos já lançados com ele não são afetados).</li>'
-        + '<li>Esses tipos cadastrados aqui são o que aparece pra escolher na hora de criar um pedido de planta.</li>'
+      html += helpSection(ICON.stock, "Cadastro de tipos de planta", '<p>Aqui você mantém a lista de plantas que vende, cada uma com nome, <b>categoria</b> e preço por unidade.</p><ul>'
+        + '<li>Use <b>+ Novo tipo de planta</b> para cadastrar.</li>'
+        + '<li>O lápis '+ICON.edit+' edita o nome/preço/categoria; a lixeira '+ICON.trash+' remove o tipo do cadastro (pedidos já lançados com ele não são afetados).</li>'
+        + '<li>Sem filtro nenhum, a lista vem organizada em <b>grupos por categoria</b> (fechados por padrão) — clique no cabeçalho de um grupo pra abrir e ver as plantas dele, cada categoria com sua cor.</li>'
+        + '<li>Se você buscar por nome ou informar um <b>preço de/até</b>, os grupos somem e aparece uma lista só, plana, com tudo que bateu com o filtro.</li>'
+        + '<li>Esses tipos cadastrados aqui são o que aparece pra escolher (com busca) na hora de criar um pedido de planta.</li>'
         + '</ul>');
 
     } else {

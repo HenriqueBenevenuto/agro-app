@@ -77,30 +77,10 @@ Err.Clear
 On Error Goto 0
 
 ' -------------------------------------------------------------
-' 2. ABRE O APP (servidor local oculto + janela estilo aplicativo)
+' 2. ABRE O APP (servidor local oculto -- ele mesmo abre a janela
+'    do navegador, ja centralizada na tela)
 ' -------------------------------------------------------------
 shell.Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & scriptDir & "\servidor.ps1""", 0, False
-
-WScript.Sleep 1500
-
-appUrl = "http://localhost:5502/aves-vivas.html?v=" & CLng(Timer) & Int(Rnd()*10000)
-
-edge1 = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Microsoft\Edge\Application\msedge.exe"
-edge2 = shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Microsoft\Edge\Application\msedge.exe"
-chrome1 = shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Google\Chrome\Application\chrome.exe"
-chrome2 = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Google\Chrome\Application\chrome.exe"
-
-If fso.FileExists(edge1) Then
-    shell.Run """" & edge1 & """ --app=" & appUrl & " --window-size=1280,800", 1, False
-ElseIf fso.FileExists(edge2) Then
-    shell.Run """" & edge2 & """ --app=" & appUrl & " --window-size=1280,800", 1, False
-ElseIf fso.FileExists(chrome1) Then
-    shell.Run """" & chrome1 & """ --app=" & appUrl & " --window-size=1280,800", 1, False
-ElseIf fso.FileExists(chrome2) Then
-    shell.Run """" & chrome2 & """ --app=" & appUrl & " --window-size=1280,800", 1, False
-Else
-    shell.Run appUrl, 1, False
-End If
 
 ' -------------------------------------------------------------
 ' FUNCOES AUXILIARES
