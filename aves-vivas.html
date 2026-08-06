@@ -119,6 +119,10 @@
   .categoria-planta-card{padding:0;overflow:hidden;margin-bottom:12px;}
   .ultima-encomenda{padding:16px 20px 20px;border-top:1px solid var(--line);}
   .ultima-encomenda-titulo{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .ultima-encomenda-footer{display:flex;justify-content:flex-end;margin-top:12px;}
+  .historico-encomenda-item{padding:14px 0;border-bottom:1px solid var(--line);}
+  .historico-encomenda-item:last-child{border-bottom:none;}
+  .historico-encomenda-data{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
   .categoria-planta-card .estoque-head{padding:14px 18px;}
   .estoque-head{
     display:flex;align-items:center;justify-content:space-between;width:100%;
@@ -415,7 +419,7 @@
     histDataAte: "",
     estoque: {},
     encomendasExtras: {},
-    ultimaEncomenda: null,
+    historicoEncomendas: [],
     estoqueExpandido: false,
     precos: {},
     buscaClientes: "",
@@ -496,7 +500,7 @@
       state.pedidos = (data && data.pedidos) || [];
       state.estoque = (data && data.estoque) || {};
       state.encomendasExtras = (data && data.encomendasExtras) || {};
-      state.ultimaEncomenda = (data && data.ultimaEncomenda) || null;
+      state.historicoEncomendas = (data && data.historicoEncomendas) || [];
       state.precos = (data && data.precos) || {};
       state.plantas = (data && data.plantas) || [];
       state.pedidosPlantas = (data && data.pedidosPlantas) || [];
@@ -654,6 +658,7 @@
     help: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>',
     money: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.9-2.5 2s1 1.6 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5"/><path d="M12 6.5v11"/></svg>',
     chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+    historico: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.14-8.36L3 8"/><path d="M12 7v5l3 3"/></svg>',
     whatsapp: '<img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPgo8c3ZnIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDMyIDMyIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPg0KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAzMUMyMy43MzIgMzEgMzAgMjQuNzMyIDMwIDE3QzMwIDkuMjY4MDEgMjMuNzMyIDMgMTYgM0M4LjI2ODAxIDMgMiA5LjI2ODAxIDIgMTdDMiAxOS41MTA5IDIuNjYxIDIxLjg2NzQgMy44MTg0NyAyMy45MDVMMiAzMUw5LjMxNDg2IDI5LjMwMzhDMTEuMzAxNCAzMC4zODU0IDEzLjU3ODkgMzEgMTYgMzFaTTE2IDI4Ljg0NjJDMjIuNTQyNSAyOC44NDYyIDI3Ljg0NjIgMjMuNTQyNSAyNy44NDYyIDE3QzI3Ljg0NjIgMTAuNDU3NiAyMi41NDI1IDUuMTUzODUgMTYgNS4xNTM4NUM5LjQ1NzU1IDUuMTUzODUgNC4xNTM4NSAxMC40NTc2IDQuMTUzODUgMTdDNC4xNTM4NSAxOS41MjYxIDQuOTQ0NSAyMS44Njc1IDYuMjkxODQgMjMuNzkwMkw1LjIzMDc3IDI3Ljc2OTJMOS4yNzk5MyAyNi43NTY5QzExLjE4OTQgMjguMDc0NiAxMy41MDQ2IDI4Ljg0NjIgMTYgMjguODQ2MloiIGZpbGw9IiNCRkM4RDAiLz4NCjxwYXRoIGQ9Ik0yOCAxNkMyOCAyMi42Mjc0IDIyLjYyNzQgMjggMTYgMjhDMTMuNDcyMiAyOCAxMS4xMjY5IDI3LjIxODQgOS4xOTI2NiAyNS44ODM3TDUuMDkwOTEgMjYuOTA5MUw2LjE2NTc2IDIyLjg3ODRDNC44MDA5MiAyMC45MzA3IDQgMTguNTU4OSA0IDE2QzQgOS4zNzI1OCA5LjM3MjU4IDQgMTYgNEMyMi42Mjc0IDQgMjggOS4zNzI1OCAyOCAxNloiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl84N183MjY0KSIvPg0KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAzMEMyMy43MzIgMzAgMzAgMjMuNzMyIDMwIDE2QzMwIDguMjY4MDEgMjMuNzMyIDIgMTYgMkM4LjI2ODAxIDIgMiA4LjI2ODAxIDIgMTZDMiAxOC41MTA5IDIuNjYxIDIwLjg2NzQgMy44MTg0NyAyMi45MDVMMiAzMEw5LjMxNDg2IDI4LjMwMzhDMTEuMzAxNCAyOS4zODU0IDEzLjU3ODkgMzAgMTYgMzBaTTE2IDI3Ljg0NjJDMjIuNTQyNSAyNy44NDYyIDI3Ljg0NjIgMjIuNTQyNSAyNy44NDYyIDE2QzI3Ljg0NjIgOS40NTc1NSAyMi41NDI1IDQuMTUzODUgMTYgNC4xNTM4NUM5LjQ1NzU1IDQuMTUzODUgNC4xNTM4NSA5LjQ1NzU1IDQuMTUzODUgMTZDNC4xNTM4NSAxOC41MjYxIDQuOTQ0NSAyMC44Njc1IDYuMjkxODQgMjIuNzkwMkw1LjIzMDc3IDI2Ljc2OTJMOS4yNzk5MyAyNS43NTY5QzExLjE4OTQgMjcuMDc0NiAxMy41MDQ2IDI3Ljg0NjIgMTYgMjcuODQ2MloiIGZpbGw9IndoaXRlIi8+DQo8cGF0aCBkPSJNMTIuNSA5LjQ5OTg5QzEyLjE2NzIgOC44MzEzMSAxMS42NTY1IDguODkwNSAxMS4xNDA3IDguODkwNUMxMC4yMTg4IDguODkwNSA4Ljc4MTI1IDkuOTk0NzggOC43ODEyNSAxMi4wNUM4Ljc4MTI1IDEzLjczNDMgOS41MjM0NSAxNS41NzggMTIuMDI0NCAxOC4zMzYxQzE0LjQzOCAyMC45OTc5IDE3LjYwOTQgMjIuMzc0OCAyMC4yNDIyIDIyLjMyNzlDMjIuODc1IDIyLjI4MTEgMjMuNDE2NyAyMC4wMTU0IDIzLjQxNjcgMTkuMjUwM0MyMy40MTY3IDE4LjkxMTIgMjMuMjA2MiAxOC43NDIgMjMuMDYxMyAxOC42OTZDMjIuMTY0MSAxOC4yNjU0IDIwLjUwOTMgMTcuNDYzMSAyMC4xMzI4IDE3LjMxMjRDMTkuNzU2MyAxNy4xNjE3IDE5LjU1OTcgMTcuMzY1NiAxOS40Mzc1IDE3LjQ3NjVDMTkuMDk2MSAxNy44MDE4IDE4LjQxOTMgMTguNzYwOCAxOC4xODc1IDE4Ljk3NjVDMTcuOTU1OCAxOS4xOTIyIDE3LjYxMDMgMTkuMDgzIDE3LjQ2NjUgMTkuMDAxNUMxNi45Mzc0IDE4Ljc4OTIgMTUuNTAyOSAxOC4xNTExIDE0LjM1OTUgMTcuMDQyNkMxMi45NDUzIDE1LjY3MTggMTIuODYyMyAxNS4yMDAxIDEyLjU5NTkgMTQuNzgwM0MxMi4zODI4IDE0LjQ0NDQgMTIuNTM5MiAxNC4yMzg0IDEyLjYxNzIgMTQuMTQ4M0MxMi45MjE5IDEzLjc5NjggMTMuMzQyNiAxMy4yNTQgMTMuNTMxMyAxMi45ODQzQzEzLjcxOTkgMTIuNzE0NSAxMy41NzAyIDEyLjMwNSAxMy40ODAzIDEyLjA1QzEzLjA5MzggMTAuOTUzIDEyLjc2NjMgMTAuMDM0NyAxMi41IDkuNDk5ODlaIiBmaWxsPSJ3aGl0ZSIvPg0KPGRlZnM+DQo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfODdfNzI2NCIgeDE9IjI2LjUiIHkxPSI3IiB4Mj0iNCIgeTI9IjI4IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+DQo8c3RvcCBzdG9wLWNvbG9yPSIjNUJEMDY2Ii8+DQo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyN0I0M0UiLz4NCjwvbGluZWFyR3JhZGllbnQ+DQo8L2RlZnM+DQo8L3N2Zz4=" alt="WhatsApp" style="width:25px;height:25px;display:block;">'
   };
 
@@ -1035,12 +1040,16 @@
     });
     html += '</tbody></table>';
 
-    if(state.ultimaEncomenda && state.ultimaEncomenda.itens && state.ultimaEncomenda.itens.length){
+    var ultima = state.historicoEncomendas && state.historicoEncomendas[0];
+    if(ultima && ultima.itens && ultima.itens.length){
       html += '<div class="ultima-encomenda">';
-      html += '<div class="ultima-encomenda-titulo">Última encomenda confirmada — '+escapeHtml(state.ultimaEncomenda.data||"")+'</div>';
-      html += state.ultimaEncomenda.itens.map(function(it){
+      html += '<div class="ultima-encomenda-titulo">Última encomenda confirmada — '+escapeHtml(ultima.data||"")+'</div>';
+      html += ultima.itens.map(function(it){
         return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span></div>';
       }).join("");
+      if(state.historicoEncomendas.length > 1){
+        html += '<div class="ultima-encomenda-footer"><button class="btn btn-sm" id="btnHistoricoEncomendas">'+ICON.historico+' Ver histórico</button></div>';
+      }
       html += '</div>';
     }
 
@@ -1054,6 +1063,10 @@
     var btnConfirmar = document.getElementById("btnConfirmarEncomenda");
     if(btnConfirmar){
       btnConfirmar.addEventListener("click", function(){ confirmarEncomenda(buildEncomendasLinhas()); });
+    }
+    var btnHistorico = document.getElementById("btnHistoricoEncomendas");
+    if(btnHistorico){
+      btnHistorico.addEventListener("click", openHistoricoEncomendasModal);
     }
 
     root.querySelectorAll(".extraInput").forEach(function(inp){
@@ -1087,6 +1100,26 @@
     });
   }
 
+  function openHistoricoEncomendasModal(){
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>Histórico de encomendas</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    var lista = state.historicoEncomendas || [];
+    if(lista.length === 0){
+      html += '<p class="help">Nenhuma encomenda confirmada ainda.</p>';
+    } else {
+      html += lista.map(function(registro){
+        var itensHtml = (registro.itens||[]).map(function(it){
+          return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span></div>';
+        }).join("");
+        return '<div class="historico-encomenda-item"><div class="historico-encomenda-data">'+escapeHtml(registro.data||"")+'</div>'+itensHtml+'</div>';
+      }).join("");
+    }
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+  }
+
   function confirmarEncomenda(linhas){
     var comItens = linhas.filter(function(l){ return l.total > 0; });
     if(comItens.length === 0) return;
@@ -1105,9 +1138,9 @@
         });
       });
       promessa.then(function(){
-        return api("setUltimaEncomenda", { itens: comItens.map(function(l){ return { categoria: l.categoria, qtd: l.total }; }) });
-      }).then(function(registro){
-        state.ultimaEncomenda = registro;
+        return api("registrarEncomenda", { itens: comItens.map(function(l){ return { categoria: l.categoria, qtd: l.total }; }) });
+      }).then(function(historico){
+        state.historicoEncomendas = historico || state.historicoEncomendas;
         toast("Encomenda confirmada! Estoque atualizado.");
         renderEncomendas();
         renderPedidos();
