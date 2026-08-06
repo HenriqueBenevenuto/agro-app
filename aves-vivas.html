@@ -117,6 +117,8 @@
 
   .estoque-card{padding:0;overflow:hidden;margin-bottom:18px;}
   .categoria-planta-card{padding:0;overflow:hidden;margin-bottom:12px;}
+  .ultima-encomenda{padding:16px 20px 20px;border-top:1px solid var(--line);}
+  .ultima-encomenda-titulo{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
   .categoria-planta-card .estoque-head{padding:14px 18px;}
   .estoque-head{
     display:flex;align-items:center;justify-content:space-between;width:100%;
@@ -413,6 +415,7 @@
     histDataAte: "",
     estoque: {},
     encomendasExtras: {},
+    ultimaEncomenda: null,
     estoqueExpandido: false,
     precos: {},
     buscaClientes: "",
@@ -493,6 +496,7 @@
       state.pedidos = (data && data.pedidos) || [];
       state.estoque = (data && data.estoque) || {};
       state.encomendasExtras = (data && data.encomendasExtras) || {};
+      state.ultimaEncomenda = (data && data.ultimaEncomenda) || null;
       state.precos = (data && data.precos) || {};
       state.plantas = (data && data.plantas) || [];
       state.pedidosPlantas = (data && data.pedidosPlantas) || [];
@@ -995,6 +999,8 @@
     return "https://wa.me/" + digitos + "?text=" + encodeURIComponent(msg);
   }
 
+  var encomendaExtraTimers = {};
+
   function renderEncomendas(){
     var root = document.getElementById("viewEncomendas");
     if(!root) return;
@@ -1005,7 +1011,7 @@
     var html = '';
     html += '<div class="card estoque-card" style="overflow:visible;">';
     html += '<div class="estoque-head" style="cursor:default;">';
-    html += '<div><div class="estoque-head-label">Total a encomendar do fornecedor</div><div class="estoque-total">'+totalGeral+' aves</div></div>';
+    html += '<div><div class="estoque-head-label">Total a encomendar do fornecedor</div><div class="estoque-total" id="encomendaTotalGeral">'+totalGeral+' aves</div></div>';
     if(temItens){
       html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
       html += '<button class="btn btn-primary btn-whatsapp-fornecedor" id="btnWhatsFornecedor" data-wa="'+encodeURIComponent(buildWhatsAppLinkFornecedor(linhas))+'">'+ICON.whatsapp+' Enviar pro fornecedor</button>';
@@ -1018,38 +1024,73 @@
       html += '<p class="help" style="padding:0 20px 16px;margin:0;">Depois de mandar a mensagem pro fornecedor, clique em <b>Confirmar encomenda</b> pra atualizar o estoque com os totais abaixo — o app não tem como saber sozinho se a mensagem foi enviada, então essa confirmação é manual.</p>';
     }
 
-    html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th><th></th></tr></thead><tbody>';
+    html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Pedidos ativos</th><th>Extra desejada</th><th>Total a encomendar</th></tr></thead><tbody>';
     linhas.forEach(function(l){
-      html += '<tr>';
+      html += '<tr data-row-cat="'+encodeURIComponent(l.categoria)+'">';
       html += '<td data-label="Tipo de ave">'+escapeHtml(l.categoria)+'</td>';
       html += '<td data-label="Pedidos ativos">'+l.ativos+'</td>';
-      html += '<td data-label="Extra desejada">'+l.extra+'</td>';
-      html += '<td data-label="Total a encomendar"><b>'+l.total+'</b></td>';
-      html += '<td><button class="btn btn-icon btn-sm" data-act="edit-extra" data-cat="'+encodeURIComponent(l.categoria)+'" title="Definir quantidade extra">'+ICON.edit+'</button></td>';
+      html += '<td data-label="Extra desejada"><input type="text" inputmode="numeric" class="extraInput" id="extraInput_'+encodeURIComponent(l.categoria)+'" data-cat="'+encodeURIComponent(l.categoria)+'" data-ativos="'+l.ativos+'" value="'+l.extra+'" style="width:80px;"></td>';
+      html += '<td data-label="Total a encomendar"><b class="totalCell">'+l.total+'</b></td>';
       html += '</tr>';
     });
-    html += '</tbody></table></div>';
+    html += '</tbody></table>';
+
+    if(state.ultimaEncomenda && state.ultimaEncomenda.itens && state.ultimaEncomenda.itens.length){
+      html += '<div class="ultima-encomenda">';
+      html += '<div class="ultima-encomenda-titulo">Última encomenda confirmada — '+escapeHtml(state.ultimaEncomenda.data||"")+'</div>';
+      html += state.ultimaEncomenda.itens.map(function(it){
+        return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span></div>';
+      }).join("");
+      html += '</div>';
+    }
+
+    html += '</div>';
 
     root.innerHTML = html;
 
-    root.querySelectorAll('[data-act="edit-extra"]').forEach(function(btn){
-      btn.addEventListener("click", function(){
-        openEncomendaExtraModal(decodeURIComponent(btn.dataset.cat));
-      });
-    });
     root.querySelectorAll('[data-wa]').forEach(function(btn){
       btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
     });
     var btnConfirmar = document.getElementById("btnConfirmarEncomenda");
     if(btnConfirmar){
-      btnConfirmar.addEventListener("click", function(){ confirmarEncomenda(linhas); });
+      btnConfirmar.addEventListener("click", function(){ confirmarEncomenda(buildEncomendasLinhas()); });
     }
+
+    root.querySelectorAll(".extraInput").forEach(function(inp){
+      inp.addEventListener("input", function(){
+        var categoria = decodeURIComponent(inp.dataset.cat);
+        var ativos = Number(inp.dataset.ativos) || 0;
+        var val = Number(inp.value) || 0;
+
+        // Atualiza a linha e o total geral na hora, sem esperar o servidor.
+        var linha = inp.closest("tr");
+        if(linha){
+          var totalCell = linha.querySelector(".totalCell");
+          if(totalCell) totalCell.textContent = (ativos + val);
+        }
+        state.encomendasExtras[categoria] = val;
+        var novoTotalGeral = buildEncomendasLinhas().reduce(function(s,l){ return s + l.total; }, 0);
+        var totalGeralEl = document.getElementById("encomendaTotalGeral");
+        if(totalGeralEl) totalGeralEl.textContent = novoTotalGeral + " aves";
+
+        clearTimeout(encomendaExtraTimers[categoria]);
+        encomendaExtraTimers[categoria] = setTimeout(function(){
+          api("setEncomendaExtra", { categoria: categoria, extra: val }).then(function(data){
+            state.encomendasExtras = data || state.encomendasExtras;
+            renderEncomendas();
+            preserveFocus(inp);
+          }).catch(function(err){
+            toast(err.message, "err");
+          });
+        }, 700);
+      });
+    });
   }
 
   function confirmarEncomenda(linhas){
     var comItens = linhas.filter(function(l){ return l.total > 0; });
     if(comItens.length === 0) return;
-    var corpo = 'Isso vai atualizar o <b>estoque</b> (aba Pedidos) com os totais abaixo, e zerar a "Extra desejada" de cada um — use depois de já ter mandado a encomenda pro fornecedor:<br><br>'
+    var corpo = 'Isso vai atualizar o <b>estoque</b> (aba Pedidos) com os totais abaixo, zerar a "Extra desejada" de cada um e salvar como a última encomenda — use depois de já ter mandado a mensagem pro fornecedor:<br><br>'
       + comItens.map(function(l){ return "• " + escapeHtml(l.categoria) + ": " + l.total; }).join("<br>");
     confirmModal("Confirmar encomenda", corpo, "Confirmar", function(){
       var promessa = Promise.resolve();
@@ -1064,43 +1105,14 @@
         });
       });
       promessa.then(function(){
+        return api("setUltimaEncomenda", { itens: comItens.map(function(l){ return { categoria: l.categoria, qtd: l.total }; }) });
+      }).then(function(registro){
+        state.ultimaEncomenda = registro;
         toast("Encomenda confirmada! Estoque atualizado.");
         renderEncomendas();
         renderPedidos();
       }).catch(function(err){
         toast(err.message, "err");
-      });
-    });
-  }
-
-  function openEncomendaExtraModal(categoria){
-    var atual = Number(state.encomendasExtras[categoria]) || 0;
-    var ativos = qtdPedidaAtiva(categoria);
-    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-sm">';
-    html += '<div class="modal-head"><h2>Quantidade extra</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
-    html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">'+escapeHtml(categoria)+'</p>';
-    html += '<div class="field"><label>Quantas a mais pedir do fornecedor</label><input type="text" inputmode="numeric" id="eeExtra" value="'+atual+'"></div>';
-    html += '<p class="help">Pedidos ativos desse tipo somam <b>'+ativos+'</b>. O total encomendado ao fornecedor vai ser '+ativos+' + esse valor extra.</p>';
-    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">Salvar</button></div>';
-    html += '</div></div>';
-    document.getElementById("modalRoot").innerHTML = html;
-
-    document.getElementById("mClose").addEventListener("click", closeModal);
-    document.getElementById("mCancel").addEventListener("click", closeModal);
-    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
-    document.getElementById("mSave").addEventListener("click", function(){
-      var extra = Number(document.getElementById("eeExtra").value);
-      if(isNaN(extra) || extra < 0){ toast("Informe um número válido.", "err"); return; }
-      var btn = document.getElementById("mSave");
-      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
-      api("setEncomendaExtra", { categoria: categoria, extra: extra }).then(function(data){
-        state.encomendasExtras = data || {};
-        toast("Quantidade extra atualizada.");
-        closeModal();
-        renderEncomendas();
-      }).catch(function(err){
-        toast(err.message, "err");
-        btn.disabled = false; btn.textContent = "Salvar";
       });
     });
   }
