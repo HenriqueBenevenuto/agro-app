@@ -1748,7 +1748,6 @@
     html += '  </div>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovaPlanta">'+ICON.plus+' Novo tipo de planta</button>';
-    html += '  <button class="btn" id="btnImportarPlantas">'+ICON.stock+' Importar lista de preços</button>';
     html += '</div>';
 
     var filtroAtivo = !!(state.buscaCadastroPlanta || state.cadastroPrecoMin !== "" || state.cadastroPrecoMax !== "");
@@ -1817,7 +1816,6 @@
     document.getElementById("countCadastroPlantas").textContent = state.plantas.length;
 
     document.getElementById("btnNovaPlanta").addEventListener("click", function(){ openPlantaCadastroModal(null); });
-    document.getElementById("btnImportarPlantas").addEventListener("click", function(){ importarListaDePrecos(); });
     var cpBusca = document.getElementById("cpBusca");
     cpBusca.addEventListener("input", function(e){ state.buscaCadastroPlanta = e.target.value; renderCadastroPlantas(); preserveFocus(cpBusca); });
     var cpPrecoMin = document.getElementById("cpPrecoMin");
