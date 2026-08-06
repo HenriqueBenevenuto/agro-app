@@ -123,6 +123,16 @@
   .historico-encomenda-item{padding:14px 0;border-bottom:1px solid var(--line);}
   .historico-encomenda-item:last-child{border-bottom:none;}
   .historico-encomenda-data{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+
+  .conferencia-linha{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);}
+  .conferencia-linha:last-of-type{border-bottom:none;}
+  .conferencia-pedido{font-size:13px;color:var(--ink-mute);}
+  .conferencia-recebido-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-soft);}
+  .conferencia-recebido-label input{width:70px;}
+  .status-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12.5px;font-weight:700;}
+  .status-certo{background:var(--green-soft);color:var(--green);}
+  .status-falta{background:var(--red-soft);color:var(--red);}
+  .status-sobra{background:var(--amber-soft);color:var(--amber);}
   .categoria-planta-card .estoque-head{padding:14px 18px;}
   .estoque-head{
     display:flex;align-items:center;justify-content:space-between;width:100%;
@@ -987,6 +997,14 @@
   // ---------------------------------------------------------------
   var FORNECEDOR_TELEFONE = "54996034260";
 
+  function statusRecebido(pedido, recebido){
+    if(recebido === undefined || recebido === null || recebido === "") return null;
+    var diff = Number(recebido) - Number(pedido);
+    if(diff === 0) return { texto: "Certo", classe: "status-certo" };
+    if(diff < 0) return { texto: "Faltou " + Math.abs(diff), classe: "status-falta" };
+    return { texto: "Sobrou " + diff, classe: "status-sobra" };
+  }
+
   function buildEncomendasLinhas(){
     return CATEGORIAS.map(function(c){
       var ativos = qtdPedidaAtiva(c.nome);
@@ -1045,7 +1063,15 @@
       html += '<div class="ultima-encomenda">';
       html += '<div class="ultima-encomenda-titulo">Última encomenda confirmada — '+escapeHtml(ultima.data||"")+'</div>';
       html += ultima.itens.map(function(it){
-        return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span></div>';
+        var recebido = (it.recebido === undefined || it.recebido === null) ? "" : it.recebido;
+        var status = statusRecebido(it.qtd, it.recebido);
+        var statusHtml = status ? '<span class="status-badge '+status.classe+'">'+status.texto+'</span>' : '<span class="cell-sub">Aguardando conferência</span>';
+        return '<div class="conferencia-linha">'
+          + '<span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span>'
+          + '<span class="conferencia-pedido">Pedido: <b>'+it.qtd+'</b></span>'
+          + '<label class="conferencia-recebido-label">Recebido<input type="text" inputmode="numeric" class="recebidoInput" data-cat="'+encodeURIComponent(it.categoria)+'" data-pedido="'+it.qtd+'" value="'+recebido+'" placeholder="—"></label>'
+          + statusHtml
+          + '</div>';
       }).join("");
       if(state.historicoEncomendas.length > 1){
         html += '<div class="ultima-encomenda-footer"><button class="btn btn-sm" id="btnHistoricoEncomendas">'+ICON.historico+' Ver histórico</button></div>';
@@ -1056,6 +1082,41 @@
     html += '</div>';
 
     root.innerHTML = html;
+
+    root.querySelectorAll(".recebidoInput").forEach(function(inp){
+      inp.addEventListener("input", function(){
+        var categoria = decodeURIComponent(inp.dataset.cat);
+        var pedido = Number(inp.dataset.pedido) || 0;
+        var val = inp.value.trim() === "" ? null : (Number(inp.value) || 0);
+
+        var linha = inp.closest(".conferencia-linha");
+        if(linha){
+          var statusEl = linha.querySelector(".status-badge, .cell-sub");
+          if(statusEl){
+            var status = statusRecebido(pedido, val);
+            if(status){
+              statusEl.className = "status-badge " + status.classe;
+              statusEl.textContent = status.texto;
+            } else {
+              statusEl.className = "cell-sub";
+              statusEl.textContent = "Aguardando conferência";
+            }
+          }
+        }
+
+        if(val === null) return;
+        clearTimeout(encomendaExtraTimers["recebido_" + categoria]);
+        encomendaExtraTimers["recebido_" + categoria] = setTimeout(function(){
+          api("registrarRecebido", { categoria: categoria, recebido: val }).then(function(historico){
+            state.historicoEncomendas = historico || state.historicoEncomendas;
+            renderEncomendas();
+            preserveFocus(inp);
+          }).catch(function(err){
+            toast(err.message, "err");
+          });
+        }, 700);
+      });
+    });
 
     root.querySelectorAll('[data-wa]').forEach(function(btn){
       btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
@@ -1109,7 +1170,9 @@
     } else {
       html += lista.map(function(registro){
         var itensHtml = (registro.itens||[]).map(function(it){
-          return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span></div>';
+          var status = statusRecebido(it.qtd, it.recebido);
+          var extra = status ? ' <span class="status-badge '+status.classe+'">'+status.texto+'</span>' : '';
+          return '<div class="tipo-linha"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span>'+extra+'</div>';
         }).join("");
         return '<div class="historico-encomenda-item"><div class="historico-encomenda-data">'+escapeHtml(registro.data||"")+'</div>'+itensHtml+'</div>';
       }).join("");
@@ -1126,21 +1189,11 @@
     var corpo = 'Isso vai atualizar o <b>estoque</b> (aba Pedidos) com os totais abaixo, zerar a "Extra desejada" de cada um e salvar como a última encomenda — use depois de já ter mandado a mensagem pro fornecedor:<br><br>'
       + comItens.map(function(l){ return "• " + escapeHtml(l.categoria) + ": " + l.total; }).join("<br>");
     confirmModal("Confirmar encomenda", corpo, "Confirmar", function(){
-      var promessa = Promise.resolve();
-      comItens.forEach(function(l){
-        promessa = promessa.then(function(){
-          return api("setEstoqueTotal", { categoria: l.categoria, total: l.total }).then(function(data){
-            state.estoque = data || state.estoque;
-            return api("setEncomendaExtra", { categoria: l.categoria, extra: 0 });
-          }).then(function(data){
-            state.encomendasExtras = data || state.encomendasExtras;
-          });
-        });
-      });
-      promessa.then(function(){
-        return api("registrarEncomenda", { itens: comItens.map(function(l){ return { categoria: l.categoria, qtd: l.total }; }) });
-      }).then(function(historico){
-        state.historicoEncomendas = historico || state.historicoEncomendas;
+      toast("Confirmando encomenda...");
+      api("confirmarEncomendaLote", { itens: comItens.map(function(l){ return { categoria: l.categoria, total: l.total }; }) }).then(function(data){
+        state.estoque = (data && data.estoque) || state.estoque;
+        state.encomendasExtras = (data && data.encomendasExtras) || state.encomendasExtras;
+        state.historicoEncomendas = (data && data.historico) || state.historicoEncomendas;
         toast("Encomenda confirmada! Estoque atualizado.");
         renderEncomendas();
         renderPedidos();
@@ -2806,9 +2859,13 @@
 
     } else if(chave === "aves-encomendas"){
       html += helpSection(ICON.stock, "Quanto pedir do fornecedor", '<p>Essa aba ajuda a calcular quantas aves encomendar do fornecedor, somando o que já está em <b>pedidos ativos</b> com uma quantidade extra que você quiser pedir a mais (por exemplo, pra repor estoque).</p><ul>'
-        + '<li>Clique no lápis '+ICON.edit+' de uma linha pra informar a quantidade extra daquele tipo. O total (pedidos ativos + extra) é calculado sozinho.</li>'
+        + '<li>Clique no campo "Extra desejada" de uma linha e digite a quantidade — não precisa abrir nada, salva sozinho. O total (pedidos ativos + extra) é calculado na hora.</li>'
         + '<li>O botão verde de WhatsApp monta a mensagem com a lista de tudo que precisa encomendar e manda pro fornecedor — mas só abre o WhatsApp, não muda nada no app.</li>'
         + '<li>Depois de mandar a mensagem de verdade, clique em <b>Confirmar encomenda</b>: aí sim o app atualiza o <b>Estoque</b> (na aba Pedidos) com os totais calculados, e zera a "Extra desejada". Isso é manual de propósito, porque o app não tem como saber se a mensagem foi realmente enviada pelo WhatsApp.</li>'
+        + '</ul>');
+      html += helpSection(ICON.check, "Conferir o que chegou", '<p>Depois que a encomenda chega, use o campo <b>Recebido</b> em cada tipo (logo abaixo da tabela, na "Última encomenda confirmada") pra anotar quantas aves realmente vieram.</p><ul>'
+        + '<li>O app compara com o que foi pedido e mostra um aviso: <b>Certo</b>, <b>Faltou X</b> ou <b>Sobrou X</b>.</li>'
+        + '<li>Isso fica registrado no histórico também — o botão "Ver histórico" mostra a conferência das encomendas anteriores.</li>'
         + '</ul>');
 
     } else if(chave === "aves-historico"){
