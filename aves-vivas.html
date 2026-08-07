@@ -1609,10 +1609,16 @@
       btn.addEventListener("click", function(){
         var g = findPedidoGroup(decodeURIComponent(btn.dataset.pid));
         confirmModal("Remover pedido", "Remover o pedido de " + (g?g.nome:"") + " da planilha? Essa ação não pode ser desfeita.", "Remover", function(){
-          api("deletePedido", { pedidoId: g.pedidoId }).then(function(){
-            toast("Pedido removido.");
+          var pedidoId = g.pedidoId;
+          // Some da tela na hora, sem esperar a planilha confirmar.
+          state.pedidos = state.pedidos.filter(function(p){ return p.pedidoId !== pedidoId; });
+          renderPedidos();
+          renderHistorico();
+          toast("Pedido removido.");
+          api("deletePedido", { pedidoId: pedidoId }).catch(function(err){
+            toast("Não foi possível remover: " + err.message, "err");
             loadPedidos();
-          }).catch(function(err){ toast(err.message, "err"); });
+          });
         }, true);
       });
     });
@@ -1836,10 +1842,15 @@
       btn.addEventListener("click", function(){
         var g = findPedidoPlantaGroup(decodeURIComponent(btn.dataset.pid));
         confirmModal("Remover pedido", "Remover o pedido de " + (g?g.nome:"") + " da planilha? Essa ação não pode ser desfeita.", "Remover", function(){
-          api("deletePedidoPlanta", { pedidoId: g.pedidoId }).then(function(){
-            toast("Pedido removido.");
+          var pedidoId = g.pedidoId;
+          state.pedidosPlantas = state.pedidosPlantas.filter(function(p){ return p.pedidoId !== pedidoId; });
+          renderPlantasPedidos();
+          renderPlantasHistorico();
+          toast("Pedido removido.");
+          api("deletePedidoPlanta", { pedidoId: pedidoId }).catch(function(err){
+            toast("Não foi possível remover: " + err.message, "err");
             loadPedidosPlantas();
-          }).catch(function(err){ toast(err.message, "err"); });
+          });
         }, true);
       });
     });
@@ -2845,10 +2856,15 @@
       btn.addEventListener("click", function(){
         var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
         confirmModal("Remover aluguel", "Remover esse registro de aluguel da planilha? Essa ação não pode ser desfeita.", "Remover", function(){
-          api("deleteAluguel", { rowIndex: a.rowIndex }).then(function(){
-            toast("Aluguel removido.");
+          var rowIndex = a.rowIndex;
+          state.alugueis = state.alugueis.filter(function(x){ return x.rowIndex !== rowIndex; });
+          renderAlugueis();
+          renderHistoricoMaquinas();
+          toast("Aluguel removido.");
+          api("deleteAluguel", { rowIndex: rowIndex }).catch(function(err){
+            toast("Não foi possível remover: " + err.message, "err");
             loadAlugueis();
-          }).catch(function(err){ toast(err.message, "err"); });
+          });
         }, true);
       });
     });
