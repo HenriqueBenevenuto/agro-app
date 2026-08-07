@@ -83,6 +83,12 @@ while ($listener.IsListening) {
             }
             $bytes = [System.IO.File]::ReadAllBytes($filePath)
             $response.ContentType = $contentType
+            # Sem isso, o navegador podia guardar a pagina em cache e nao
+            # perceber atualizacoes -- com isso, a URL pode ficar sempre
+            # igual (o que ajuda o icone da barra de tarefas "grudar")
+            # sem correr o risco de mostrar conteudo antigo.
+            $response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+            $response.Headers.Add("Pragma", "no-cache")
             $response.ContentLength64 = $bytes.Length
             $response.OutputStream.Write($bytes, 0, $bytes.Length)
         } else {

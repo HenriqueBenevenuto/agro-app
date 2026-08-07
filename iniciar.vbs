@@ -83,7 +83,7 @@ shell.Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Fi
 
 WScript.Sleep 1500
 
-appUrl = "http://localhost:5502/aves-vivas.html?v=" & CLng(Timer) & Int(Rnd()*10000)
+appUrl = "http://localhost:5502/aves-vivas.html"
 
 edge1 = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%") & "\Microsoft\Edge\Application\msedge.exe"
 edge2 = shell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Microsoft\Edge\Application\msedge.exe"
@@ -101,6 +101,30 @@ ElseIf fso.FileExists(chrome2) Then
 Else
     shell.Run appUrl, 1, False
 End If
+
+' -------------------------------------------------------------
+' 3. FORCA O ICONE DA JANELA (o Chrome/Edge no modo --app nem sempre
+'    usa o favicon da pagina como icone da barra de tarefas). Gera um
+'    script PowerShell temporario soh pra isso -- fica na pasta TEMP,
+'    nao precisa manter mais nenhum arquivo junto do app.
+' -------------------------------------------------------------
+On Error Resume Next
+psLinha1 = "$hwnd=[IntPtr]::Zero;$tent=0"
+psLinha2 = "Add-Type -Name W -Namespace A -MemberDefinition '[DllImport(""user32.dll"",CharSet=CharSet.Auto)] public static extern IntPtr FindWindow(string c, string n); [DllImport(""user32.dll"")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l); [DllImport(""user32.dll"")] public static extern bool ShowWindow(IntPtr h, int n);'"
+psLinha3 = "while($hwnd -eq [IntPtr]::Zero -and $tent -lt 25){Start-Sleep -Milliseconds 300;$hwnd=[A.W]::FindWindow($null,'Agro Benevenuto - Encomendas');$tent++}"
+psLinha4 = "if($hwnd -ne [IntPtr]::Zero){[A.W]::ShowWindow($hwnd,3)|Out-Null;Add-Type -AssemblyName System.Drawing;$ico=New-Object System.Drawing.Icon('" & scriptDir & "\agro-benevenuto.ico');[A.W]::SendMessage($hwnd,0x80,[IntPtr]0,$ico.Handle)|Out-Null;[A.W]::SendMessage($hwnd,0x80,[IntPtr]1,$ico.Handle)|Out-Null}"
+
+tempPs = shell.ExpandEnvironmentStrings("%TEMP%") & "\avesagro_icone.ps1"
+Set tf = fso.CreateTextFile(tempPs, True)
+tf.WriteLine psLinha1
+tf.WriteLine psLinha2
+tf.WriteLine psLinha3
+tf.WriteLine psLinha4
+tf.Close
+
+shell.Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & tempPs & """", 0, False
+Err.Clear
+On Error Goto 0
 
 ' -------------------------------------------------------------
 ' FUNCOES AUXILIARES

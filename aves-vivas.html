@@ -237,6 +237,8 @@
   .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:13px;font-weight:600;}
   .badge-ativo{background:var(--green-soft);color:var(--green);}
   .badge-encerrado{background:var(--line);color:var(--ink-soft);}
+  .badge-disponivel{background:var(--green-soft);color:var(--green);}
+  .badge-alugada{background:var(--amber-soft);color:var(--amber);}
   .tag{display:inline-block;padding:3px 10px;border-radius:6px;background:var(--amber-soft);color:var(--amber);font-size:13px;font-weight:600;}
   .tag-c1{background:#FBEBD8;color:#C97A2B;}
   .tag-c2{background:#DCEAF7;color:#2B6CA3;}
@@ -394,6 +396,7 @@
     <div class="tabs-geral-left">
       <button class="tab-geral active" data-geral="aves">Aves</button>
       <button class="tab-geral" data-geral="plantas">Plantas</button>
+      <button class="tab-geral" data-geral="maquinas">Máquinas</button>
       <button class="tab-geral" data-geral="clientes">Clientes <span class="count" id="countClientes">0</span></button>
     </div>
     <button class="tab-help-btn" id="btnHelp" title="Ajuda">
@@ -422,6 +425,17 @@
     <div id="viewPlantasPedidos"></div>
     <div id="viewPlantasHistorico" style="display:none;"></div>
     <div id="viewPlantasCadastro" style="display:none;"></div>
+  </div>
+
+  <div id="secaoMaquinas" style="display:none;">
+    <div class="tabs">
+      <button class="tab tab-maquina active" data-viewmaquina="alugueis">Aluguéis</button>
+      <button class="tab tab-maquina" data-viewmaquina="historico">Histórico <span class="count" id="countHistoricoMaquinas">0</span></button>
+      <button class="tab tab-maquina" data-viewmaquina="cadastro">Cadastro <span class="count" id="countCadastroMaquinas">0</span></button>
+    </div>
+    <div id="viewAlugueis"></div>
+    <div id="viewHistoricoMaquinas" style="display:none;"></div>
+    <div id="viewCadastroMaquinas" style="display:none;"></div>
   </div>
 
   <div id="viewClientes" style="display:none;"></div>
@@ -474,6 +488,18 @@
     estoque: {},
     encomendasExtras: {},
     historicoEncomendas: [],
+
+    maquinas: [],
+    alugueis: [],
+    loadingMaquinas: false,
+    loadingAlugueis: false,
+    viewMaquina: "alugueis",
+    buscaCadastroMaquinas: "",
+    histMaquina: "Todos",
+    histStatusMaquina: "Encerrado",
+    histClienteMaquina: "",
+    histDataDeMaquina: "",
+    histDataAteMaquina: "",
     estoqueExpandido: false,
     precos: {},
     buscaClientes: "",
@@ -537,45 +563,94 @@
     });
   }
 
+  function aplicarDadosCore(data){
+    atualizarCategoriasAves(data && data.meta && data.meta.categorias);
+    state.clientes = (data && data.clientes) || [];
+    state.pedidos = (data && data.pedidos) || [];
+    state.estoque = (data && data.estoque) || {};
+    state.precos = (data && data.precos) || {};
+    state.loadingClientes = false;
+    state.loadingPedidos = false;
+    setStatus(true, "Conectado");
+    renderClientes();
+    renderPedidos();
+    renderHistorico();
+  }
+
+  function aplicarDadosResto(data){
+    state.plantas = (data && data.plantas) || [];
+    state.pedidosPlantas = (data && data.pedidosPlantas) || [];
+    state.encomendasExtras = (data && data.encomendasExtras) || {};
+    state.historicoEncomendas = (data && data.historicoEncomendas) || [];
+    state.maquinas = (data && data.maquinas) || [];
+    state.alugueis = (data && data.alugueis) || [];
+    state.loadingPlantas = false;
+    state.loadingPedidosPlantas = false;
+    state.loadingMaquinas = false;
+    state.loadingAlugueis = false;
+    renderPlantasPedidos();
+    renderPlantasHistorico();
+    renderCadastroPlantas();
+    renderAlugueis();
+    renderHistoricoMaquinas();
+    renderCadastroMaquinas();
+    if(state.view === "encomendas") renderEncomendas();
+  }
+
+  // Mantida por compatibilidade (usada em alguns fluxos que ainda pedem tudo de uma vez).
+  function aplicarDadosIniciais(data){
+    aplicarDadosCore(data);
+    aplicarDadosResto(data);
+  }
+
+  // Busca o resto dos dados (Plantas, Máquinas, histórico de encomendas)
+  // em segundo plano, sem travar a tela -- chamada depois que o essencial
+  // (Aves + Clientes) já apareceu.
+  function loadResto(){
+    api("getInicialResto").then(function(data){
+      aplicarDadosResto(data);
+    }).catch(function(err){
+      state.loadingPlantas = false;
+      state.loadingPedidosPlantas = false;
+      state.loadingMaquinas = false;
+      state.loadingAlugueis = false;
+      renderPlantasPedidos();
+      renderPlantasHistorico();
+      renderCadastroPlantas();
+      renderAlugueis();
+      renderHistoricoMaquinas();
+      renderCadastroMaquinas();
+      toast("Não foi possível carregar Plantas/Máquinas agora: " + err.message, "err");
+    });
+  }
+
   function loadAll(){
     if(!state.apiUrl){ openSettingsModal(); return; }
     state.loadingClientes = true;
     state.loadingPedidos = true;
     state.loadingPlantas = true;
     state.loadingPedidosPlantas = true;
+    state.loadingMaquinas = true;
+    state.loadingAlugueis = true;
     renderClientes();
     renderPedidos();
     renderHistorico();
     renderPlantasPedidos();
     renderPlantasHistorico();
     renderCadastroPlantas();
-    api("getInicial").then(function(data){
-      atualizarCategoriasAves(data && data.meta && data.meta.categorias);
-      state.clientes = (data && data.clientes) || [];
-      state.pedidos = (data && data.pedidos) || [];
-      state.estoque = (data && data.estoque) || {};
-      state.encomendasExtras = (data && data.encomendasExtras) || {};
-      state.historicoEncomendas = (data && data.historicoEncomendas) || [];
-      state.precos = (data && data.precos) || {};
-      state.plantas = (data && data.plantas) || [];
-      state.pedidosPlantas = (data && data.pedidosPlantas) || [];
-      state.loadingClientes = false;
-      state.loadingPedidos = false;
-      state.loadingPlantas = false;
-      state.loadingPedidosPlantas = false;
-      setStatus(true, "Conectado");
-      renderClientes();
-      renderPedidos();
-      renderHistorico();
-      renderPlantasPedidos();
-      renderPlantasHistorico();
-      renderCadastroPlantas();
-      if(state.view === "encomendas") renderEncomendas();
+    renderAlugueis();
+    renderHistoricoMaquinas();
+    renderCadastroMaquinas();
+    api("getInicialCore").then(function(data){
+      aplicarDadosCore(data);
+      loadResto();
     }).catch(function(err){
       state.loadingClientes = false;
       state.loadingPedidos = false;
       state.loadingPlantas = false;
       state.loadingPedidosPlantas = false;
+      state.loadingMaquinas = false;
+      state.loadingAlugueis = false;
       setStatus(false, "Falha na conexão");
       renderClientes();
       renderPedidos();
@@ -583,7 +658,9 @@
       renderPlantasPedidos();
       renderPlantasHistorico();
       renderCadastroPlantas();
-      if(state.view === "encomendas") renderEncomendas();
+      renderAlugueis();
+      renderHistoricoMaquinas();
+      renderCadastroMaquinas();
       toast(err.message, "err");
     });
   }
@@ -678,6 +755,43 @@
       setStatus(false, "Falha na conexão");
       renderPlantasPedidos();
       renderPlantasHistorico();
+      toast(err.message, "err");
+    });
+  }
+
+  function loadMaquinas(){
+    state.loadingMaquinas = true;
+    renderCadastroMaquinas();
+    api("listMaquinas").then(function(data){
+      state.maquinas = data || [];
+      state.loadingMaquinas = false;
+      setStatus(true, "Conectado");
+      renderCadastroMaquinas();
+      renderAlugueis();
+      renderHistoricoMaquinas();
+    }).catch(function(err){
+      state.loadingMaquinas = false;
+      setStatus(false, "Falha na conexão");
+      renderCadastroMaquinas();
+      toast(err.message, "err");
+    });
+  }
+
+  function loadAlugueis(){
+    state.loadingAlugueis = true;
+    renderAlugueis();
+    renderHistoricoMaquinas();
+    api("listAlugueis").then(function(data){
+      state.alugueis = data || [];
+      state.loadingAlugueis = false;
+      setStatus(true, "Conectado");
+      renderAlugueis();
+      renderHistoricoMaquinas();
+    }).catch(function(err){
+      state.loadingAlugueis = false;
+      setStatus(false, "Falha na conexão");
+      renderAlugueis();
+      renderHistoricoMaquinas();
       toast(err.message, "err");
     });
   }
@@ -1342,17 +1456,29 @@
         toast("Encomenda confirmada! Estoque atualizado.");
         renderEncomendas();
         renderPedidos();
-        imprimirListaPedidosAtivos();
+        imprimirListaPedidosAtivos(comItens.map(function(l){ return l.categoria; }));
       }).catch(function(err){
         toast(err.message, "err");
       });
     });
   }
 
-  // Monta e imprime a lista de todos os pedidos ativos (cliente, tipos de
-  // ave, valor), com a data de agora -- disparada ao confirmar a encomenda.
-  function imprimirListaPedidosAtivos(){
+  // Monta e imprime a lista dos pedidos ativos que têm ao menos um item
+  // dos tipos de ave marcados na confirmação (mostra só esses itens, não
+  // o pedido inteiro caso ele tenha outros tipos ainda não confirmados).
+  function imprimirListaPedidosAtivos(categoriasConfirmadas){
     var lista = groupPedidos().filter(function(g){ return g.status === "Ativo"; })
+      .map(function(g){
+        var itensFiltrados = g.itens.filter(function(it){ return categoriasConfirmadas.indexOf(it.categoria) !== -1; });
+        if(itensFiltrados.length === 0) return null;
+        var qtdTotal = itensFiltrados.reduce(function(s,it){ return s + it.qtd; }, 0);
+        var valorTotal = itensFiltrados.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+        return {
+          nome: g.nome, telefone: g.telefone, municipio: g.municipio,
+          itens: itensFiltrados, qtdTotal: qtdTotal, valorTotal: valorTotal
+        };
+      })
+      .filter(function(g){ return g !== null; })
       .sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
 
     var agora = new Date();
@@ -1363,13 +1489,13 @@
     var totalAves = lista.reduce(function(s,g){ return s + g.qtdTotal; }, 0);
 
     var html = '<div class="imp-cabecalho">';
-    html += '<h1>Agro Benevenuto — Lista de Pedidos Ativos</h1>';
+    html += '<h1>Agro Benevenuto — Lista de Pedidos (Tipos Confirmados)</h1>';
     html += '<p>Encomenda confirmada em: ' + dataHora + ' &nbsp;•&nbsp; ' + lista.length + ' pedido(s) &nbsp;•&nbsp; ' + totalAves + ' ave(s)</p>';
     html += '</div>';
 
     html += '<table class="imp-tabela"><thead><tr><th>Cliente</th><th>Tipos de ave</th><th class="imp-valor">Valor</th></tr></thead><tbody>';
     if(lista.length === 0){
-      html += '<tr><td colspan="3">Nenhum pedido ativo no momento.</td></tr>';
+      html += '<tr><td colspan="3">Nenhum pedido ativo com os tipos confirmados agora.</td></tr>';
     } else {
       lista.forEach(function(g){
         var itensTexto = g.itens.map(function(it){
@@ -2355,6 +2481,499 @@
     });
   }
 
+  // ---------------------------------------------------------------
+  // MÁQUINAS — cadastro e aluguéis
+  // ---------------------------------------------------------------
+  function dataDeHojeISO(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+
+  function converterParaISO(dataBr){
+    if(!dataBr) return "";
+    var partes = dataBr.split("/");
+    if(partes.length !== 3) return "";
+    return partes[2] + "-" + partes[1] + "-" + partes[0];
+  }
+
+  function calcularDiasAluguel(dataInicioStr, dataFimStr){
+    var di = parseDataCriacao(dataInicioStr);
+    var df = parseDataCriacao(dataFimStr);
+    if(!di || !df) return 1;
+    var diff = Math.round((df - di) / 86400000);
+    return Math.max(1, diff);
+  }
+
+  function buildMaquinasComStatus(){
+    return state.maquinas.map(function(m){
+      var aluguelAtivo = state.alugueis.filter(function(a){ return a.maquina === m.nome && (a.status||"Ativo") === "Ativo"; })[0];
+      if(aluguelAtivo){
+        var dias = calcularDiasAluguel(aluguelAtivo.dataInicio, aluguelAtivo.dataFim);
+        var valor = dias * (Number(m.valorDia)||0);
+        return { maquina: m, alugada: true, aluguel: aluguelAtivo, dias: dias, valor: valor };
+      }
+      return { maquina: m, alugada: false };
+    }).sort(function(a,b){ return (a.maquina.nome||"").localeCompare(b.maquina.nome||""); });
+  }
+
+  // ---- Aba Aluguéis ----
+  function renderAlugueis(){
+    var root = document.getElementById("viewAlugueis");
+    if(!root) return;
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <div class="spacer"></div>';
+    html += '  <button class="btn btn-primary" id="btnNovoAluguel">'+ICON.plus+' Novo aluguel</button>';
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingMaquinas || state.loadingAlugueis){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+    } else {
+      var lista = buildMaquinasComStatus();
+      if(lista.length === 0){
+        html += emptyState(ICON.box, "Nenhuma máquina cadastrada", "Cadastre uma máquina na aba Cadastro pra poder registrar aluguéis.");
+      } else {
+        html += '<table><thead><tr><th>Máquina</th><th>Marca</th><th>Valor/dia</th><th>Status</th><th>Cliente</th><th>Devolução</th><th>Valor do aluguel (dias)</th><th></th></tr></thead><tbody>';
+        lista.forEach(function(item){
+          var m = item.maquina;
+          html += '<tr>';
+          html += '<td data-label="Máquina"><b>'+escapeHtml(m.nome)+'</b></td>';
+          html += '<td data-label="Marca" class="cell-sub">'+escapeHtml(m.marca||"—")+'</td>';
+          html += '<td data-label="Valor/dia">'+formatMoeda(m.valorDia)+'</td>';
+          if(item.alugada){
+            html += '<td data-label="Status"><span class="badge badge-alugada">Alugada</span></td>';
+            html += '<td data-label="Cliente">'+escapeHtml(item.aluguel.cliente)+'</td>';
+            html += '<td data-label="Devolução">'+escapeHtml(item.aluguel.dataFim)+'</td>';
+            html += '<td data-label="Valor do aluguel"><b>'+formatMoeda(item.valor)+'</b> <span class="cell-sub">('+item.dias+')</span></td>';
+            html += '<td><div class="row-actions">';
+            html += '<button class="btn btn-icon btn-sm" data-act="edit-aluguel" data-row="'+item.aluguel.rowIndex+'" title="Editar aluguel">'+ICON.edit+'</button>';
+            html += '<button class="btn btn-icon btn-sm" data-act="encerrar-aluguel" data-row="'+item.aluguel.rowIndex+'" title="Marcar como devolvida">'+ICON.check+'</button>';
+            html += '</div></td>';
+          } else {
+            html += '<td data-label="Status"><span class="badge badge-disponivel">Disponível</span></td>';
+            html += '<td data-label="Cliente" class="cell-sub">—</td>';
+            html += '<td data-label="Devolução" class="cell-sub">—</td>';
+            html += '<td data-label="Valor do aluguel" class="cell-sub">—</td>';
+            html += '<td></td>';
+          }
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("btnNovoAluguel").addEventListener("click", function(){ openAluguelModal(null); });
+
+    root.querySelectorAll('[data-act="edit-aluguel"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        if(a) openAluguelModal(a);
+      });
+    });
+    root.querySelectorAll('[data-act="encerrar-aluguel"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        confirmModal("Marcar como devolvida", "Marcar a máquina \""+escapeHtml(a?a.maquina:"")+"\" como devolvida? Ela volta a aparecer como Disponível.", "Marcar devolvida", function(){
+          api("encerrarAluguel", { rowIndex: a.rowIndex }).then(function(){
+            toast("Máquina marcada como devolvida.");
+            loadAlugueis();
+          }).catch(function(err){ toast(err.message, "err"); });
+        });
+      });
+    });
+  }
+
+  function openAluguelModal(aluguel){
+    var editing = !!(aluguel && aluguel.rowIndex);
+    if(state.maquinas.length === 0){
+      toast("Cadastre uma máquina antes de registrar um aluguel.", "err");
+      return;
+    }
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal">';
+    html += '<div class="modal-head"><h2>'+(editing?"Editar aluguel":"Novo aluguel")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+
+    html += '<div class="field"><label>Máquina</label><select id="alMaquina">'+state.maquinas.map(function(m){
+      return '<option value="'+escapeHtml(m.nome)+'"'+(editing && aluguel.maquina===m.nome?' selected':'')+'>'+escapeHtml(m.nome)+(m.marca?' ('+escapeHtml(m.marca)+')':'')+'</option>';
+    }).join("")+'</select></div>';
+
+    html += '<div class="field autocomplete">';
+    html += '<label>Cliente</label>';
+    html += '<input type="text" id="alCliente" placeholder="Nome do cliente" value="'+escapeHtml(editing?aluguel.cliente:"")+'" autocomplete="off">';
+    html += '<div id="alAutocomplete"></div>';
+    html += '</div>';
+
+    html += '<div class="field-row">';
+    html += '<div class="field"><label>Telefone</label><input type="tel" id="alTelefone" placeholder="(54) 99999-9999" value="'+escapeHtml(editing?aluguel.telefone:"")+'"></div>';
+    html += '<div class="field"><label>Município</label><input type="text" id="alMunicipio" placeholder="Município" value="'+escapeHtml(editing?aluguel.municipio:"")+'"></div>';
+    html += '</div>';
+
+    html += '<div class="field"><label>Endereço</label><input type="text" id="alEndereco" placeholder="Endereço completo" value="'+escapeHtml(editing?aluguel.endereco:"")+'"></div>';
+
+    html += '<div class="field-row">';
+    html += '<div class="field"><label>Data de início</label><input type="date" id="alDataInicio" value="'+(editing?converterParaISO(aluguel.dataInicio):dataDeHojeISO())+'"></div>';
+    html += '<div class="field"><label>Data de devolução</label><input type="date" id="alDataFim" value="'+(editing?converterParaISO(aluguel.dataFim):"")+'"></div>';
+    html += '</div>';
+
+    html += '<div class="modal-actions">';
+    html += '<button class="btn" id="mCancel">Cancelar</button>';
+    html += '<button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Registrar aluguel")+'</button>';
+    html += '</div></div></div>';
+
+    document.getElementById("modalRoot").innerHTML = html;
+
+    var alCliente = document.getElementById("alCliente");
+    alCliente.addEventListener("input", function(){
+      var q = alCliente.value.trim().toLowerCase();
+      var box = document.getElementById("alAutocomplete");
+      if(q.length < 2){ box.innerHTML = ""; return; }
+      var matches = state.clientes.filter(function(c){ return c.nome.toLowerCase().indexOf(q) !== -1; }).slice(0, 6);
+      if(matches.length === 0){ box.innerHTML = ""; return; }
+      box.innerHTML = '<div class="autocomplete-list">' + matches.map(function(c){
+        return '<div class="autocomplete-item" data-nome="'+escapeHtml(c.nome)+'"><div class="n">'+escapeHtml(c.nome)+'</div><div class="m">'+escapeHtml(c.municipio||"")+' · '+escapeHtml(c.telefone||"")+'</div></div>';
+      }).join("") + '</div>';
+      box.querySelectorAll(".autocomplete-item").forEach(function(item, idx){
+        item.addEventListener("click", function(){
+          var c = matches[idx];
+          alCliente.value = c.nome;
+          document.getElementById("alTelefone").value = c.telefone || "";
+          document.getElementById("alEndereco").value = c.endereco || "";
+          document.getElementById("alMunicipio").value = c.municipio || "";
+          box.innerHTML = "";
+        });
+      });
+    });
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+
+    document.getElementById("mSave").addEventListener("click", function(){
+      var cliente = alCliente.value.trim();
+      if(!cliente){ toast("Informe o nome do cliente.", "err"); return; }
+      var dataInicio = document.getElementById("alDataInicio").value;
+      var dataFim = document.getElementById("alDataFim").value;
+      if(!dataInicio || !dataFim){ toast("Informe as duas datas.", "err"); return; }
+      if(dataFim < dataInicio){ toast("A data de devolução não pode ser antes da data de início.", "err"); return; }
+
+      var payload = {
+        rowIndex: editing ? aluguel.rowIndex : undefined,
+        maquina: document.getElementById("alMaquina").value,
+        cliente: cliente,
+        telefone: document.getElementById("alTelefone").value.trim(),
+        endereco: document.getElementById("alEndereco").value.trim(),
+        municipio: document.getElementById("alMunicipio").value.trim(),
+        dataInicio: dataInicio,
+        dataFim: dataFim
+      };
+
+      if(!editing){
+        var clienteExiste = state.clientes.some(function(cl){ return cl.nome.trim().toLowerCase() === cliente.toLowerCase(); });
+        if(!clienteExiste){
+          confirmModal(
+            "Cliente não encontrado",
+            "\""+escapeHtml(cliente)+"\" ainda não está cadastrado em Clientes. Deseja cadastrar esse cliente agora?",
+            "Sim, cadastrar",
+            function(){
+              openClienteModal(
+                { nome: payload.cliente, telefone: payload.telefone, endereco: payload.endereco, municipio: payload.municipio },
+                null,
+                true
+              );
+            },
+            false, null, true
+          );
+          return;
+        }
+      }
+
+      salvarAluguel(payload, editing);
+    });
+  }
+
+  function salvarAluguel(payload, editing){
+    var btn = document.getElementById("mSave");
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+    var call = editing ? api("updateAluguel", payload) : api("addAluguel", payload);
+    call.then(function(){
+      toast(editing ? "Aluguel atualizado." : "Aluguel registrado.");
+      closeModal();
+      loadAlugueis();
+    }).catch(function(err){
+      toast(err.message, "err");
+      btn.disabled = false; btn.textContent = editing ? "Salvar alterações" : "Registrar aluguel";
+    });
+  }
+
+  // ---- Aba Histórico (aluguéis) ----
+  function filteredHistoricoMaquinas(){
+    var de = state.histDataDeMaquina ? new Date(state.histDataDeMaquina + "T00:00:00") : null;
+    var ate = state.histDataAteMaquina ? new Date(state.histDataAteMaquina + "T23:59:59") : null;
+    return state.alugueis.filter(function(a){
+      if(state.histMaquina !== "Todos" && a.maquina !== state.histMaquina) return false;
+      if(state.histStatusMaquina !== "Todos" && (a.status||"Ativo") !== state.histStatusMaquina) return false;
+      if(state.histClienteMaquina){
+        var q = state.histClienteMaquina.toLowerCase();
+        if((a.cliente||"").toLowerCase().indexOf(q) === -1) return false;
+      }
+      if(de || ate){
+        var d = parseDataCriacao(a.dataInicio);
+        if(!d) return false;
+        if(de && d < de) return false;
+        if(ate && d > ate) return false;
+      }
+      return true;
+    }).map(function(a){
+      var maq = state.maquinas.filter(function(m){ return m.nome === a.maquina; })[0];
+      var valorDia = maq ? Number(maq.valorDia)||0 : 0;
+      var dias = calcularDiasAluguel(a.dataInicio, a.dataFim);
+      return { aluguel: a, dias: dias, valor: dias * valorDia };
+    }).sort(function(x,y){
+      var dx = parseDataCriacao(x.aluguel.dataInicio), dy = parseDataCriacao(y.aluguel.dataInicio);
+      if(dx && dy && dx.getTime() !== dy.getTime()) return dy - dx;
+      return (x.aluguel.cliente||"").localeCompare(y.aluguel.cliente||"");
+    });
+  }
+
+  function renderHistoricoMaquinas(){
+    var root = document.getElementById("viewHistoricoMaquinas");
+    if(!root) return;
+    var opcoesMaquina = '<option value="Todos">Todas as máquinas</option>' + state.maquinas.map(function(m){
+      return '<option value="'+escapeHtml(m.nome)+'"'+(state.histMaquina===m.nome?' selected':'')+'>'+escapeHtml(m.nome)+'</option>';
+    }).join("");
+
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <select id="hmMaquina">'+opcoesMaquina+'</select>';
+    html += '  <select id="hmStatus">';
+    html += '    <option value="Encerrado"'+(state.histStatusMaquina==='Encerrado'?' selected':'')+'>Encerrados</option>';
+    html += '    <option value="Ativo"'+(state.histStatusMaquina==='Ativo'?' selected':'')+'>Ativos</option>';
+    html += '    <option value="Todos"'+(state.histStatusMaquina==='Todos'?' selected':'')+'>Todos os status</option>';
+    html += '  </select>';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="hmCliente" placeholder="Buscar por cliente" value="'+escapeHtml(state.histClienteMaquina)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <div class="date-range-group">';
+    html += '  <label class="date-filter-label">De<input type="date" id="hmDataDe" value="'+escapeHtml(state.histDataDeMaquina)+'"></label>';
+    html += '  <label class="date-filter-label">Até<input type="date" id="hmDataAte" value="'+escapeHtml(state.histDataAteMaquina)+'"></label>';
+    html += '  </div>';
+    if(state.histMaquina !== "Todos" || state.histClienteMaquina || state.histDataDeMaquina || state.histDataAteMaquina || state.histStatusMaquina !== "Todos"){
+      html += '  <button class="btn btn-sm" id="btnLimparHistMaquina">Limpar filtros</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingAlugueis || state.loadingMaquinas){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+    } else {
+      var list = filteredHistoricoMaquinas();
+      if(list.length === 0){
+        html += emptyState(ICON.box, "Nenhum aluguel encontrado", state.alugueis.length===0 ? "Os aluguéis registrados vão aparecer aqui." : "Ajuste os filtros para ver outros aluguéis.");
+      } else {
+        var somaValor = list.reduce(function(s,item){ return s + item.valor; }, 0);
+        html += '<div class="historico-total-row"><span>Valor total dos aluguéis filtrados</span><span class="historico-total-valor">'+formatMoeda(somaValor)+'</span></div>';
+        html += '<table><thead><tr><th>Máquina</th><th>Cliente</th><th>Início</th><th>Devolução</th><th>Valor (dias)</th><th>Status</th><th></th></tr></thead><tbody>';
+        list.forEach(function(item){
+          var a = item.aluguel;
+          var statusBadge = a.status === "Encerrado" ? '<span class="badge badge-encerrado">Encerrado</span>' : '<span class="badge badge-ativo">Ativo</span>';
+          html += '<tr>';
+          html += '<td data-label="Máquina">'+escapeHtml(a.maquina)+'</td>';
+          html += '<td data-label="Cliente"><div>'+escapeHtml(a.cliente)+'</div><div class="cell-sub">'+escapeHtml(a.telefone||"")+'</div></td>';
+          html += '<td data-label="Início" class="cell-sub">'+escapeHtml(a.dataInicio)+'</td>';
+          html += '<td data-label="Devolução" class="cell-sub">'+escapeHtml(a.dataFim)+'</td>';
+          html += '<td data-label="Valor (dias)"><b>'+formatMoeda(item.valor)+'</b> <span class="cell-sub">('+item.dias+')</span></td>';
+          html += '<td data-label="Status">'+statusBadge+'</td>';
+          html += '<td><div class="row-actions">';
+          html += '<button class="btn btn-icon btn-sm" data-act="edit-aluguel-h" data-row="'+a.rowIndex+'" title="Editar">'+ICON.edit+'</button>';
+          if(a.status === "Encerrado"){
+            html += '<button class="btn btn-icon btn-sm" data-act="reabrir-aluguel-h" data-row="'+a.rowIndex+'" title="Reabrir">'+ICON.undo+'</button>';
+          } else {
+            html += '<button class="btn btn-icon btn-sm" data-act="encerrar-aluguel-h" data-row="'+a.rowIndex+'" title="Marcar como devolvida">'+ICON.check+'</button>';
+          }
+          html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-aluguel-h" data-row="'+a.rowIndex+'" title="Remover">'+ICON.trash+'</button>';
+          html += '</div></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("countHistoricoMaquinas").textContent = state.alugueis.filter(function(a){ return (a.status||"Ativo") === "Encerrado"; }).length;
+
+    document.getElementById("hmMaquina").addEventListener("change", function(e){ state.histMaquina = e.target.value; renderHistoricoMaquinas(); });
+    document.getElementById("hmStatus").addEventListener("change", function(e){ state.histStatusMaquina = e.target.value; renderHistoricoMaquinas(); });
+    var hmCliente = document.getElementById("hmCliente");
+    hmCliente.addEventListener("input", function(e){ state.histClienteMaquina = e.target.value; renderHistoricoMaquinas(); preserveFocus(hmCliente); });
+    document.getElementById("hmDataDe").addEventListener("change", function(e){ state.histDataDeMaquina = e.target.value; renderHistoricoMaquinas(); });
+    document.getElementById("hmDataAte").addEventListener("change", function(e){ state.histDataAteMaquina = e.target.value; renderHistoricoMaquinas(); });
+    var btnLimparHM = document.getElementById("btnLimparHistMaquina");
+    if(btnLimparHM){
+      btnLimparHM.addEventListener("click", function(){
+        state.histMaquina = "Todos"; state.histStatusMaquina = "Todos"; state.histClienteMaquina = ""; state.histDataDeMaquina = ""; state.histDataAteMaquina = "";
+        renderHistoricoMaquinas();
+      });
+    }
+
+    root.querySelectorAll('[data-act="edit-aluguel-h"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        if(a) openAluguelModal(a);
+      });
+    });
+    root.querySelectorAll('[data-act="encerrar-aluguel-h"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        api("encerrarAluguel", { rowIndex: a.rowIndex }).then(function(){
+          toast("Máquina marcada como devolvida.");
+          loadAlugueis();
+        }).catch(function(err){ toast(err.message, "err"); });
+      });
+    });
+    root.querySelectorAll('[data-act="reabrir-aluguel-h"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        api("reabrirAluguel", { rowIndex: a.rowIndex }).then(function(){
+          toast("Aluguel reaberto.");
+          loadAlugueis();
+        }).catch(function(err){ toast(err.message, "err"); });
+      });
+    });
+    root.querySelectorAll('[data-act="del-aluguel-h"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var a = state.alugueis.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        confirmModal("Remover aluguel", "Remover esse registro de aluguel da planilha? Essa ação não pode ser desfeita.", "Remover", function(){
+          api("deleteAluguel", { rowIndex: a.rowIndex }).then(function(){
+            toast("Aluguel removido.");
+            loadAlugueis();
+          }).catch(function(err){ toast(err.message, "err"); });
+        }, true);
+      });
+    });
+  }
+
+  // ---- Aba Cadastro (máquinas) ----
+  function filteredCadastroMaquinas(){
+    return state.maquinas.filter(function(m){
+      if(state.buscaCadastroMaquinas){
+        var q = state.buscaCadastroMaquinas.toLowerCase();
+        var hay = (m.nome + " " + (m.marca||"")).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
+  }
+
+  function renderCadastroMaquinas(){
+    var root = document.getElementById("viewCadastroMaquinas");
+    if(!root) return;
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="cmBusca" placeholder="Buscar máquina ou marca" value="'+escapeHtml(state.buscaCadastroMaquinas)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <button class="btn btn-primary" id="btnNovaMaquina">'+ICON.plus+' Nova máquina</button>';
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingMaquinas){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+    } else {
+      var list = filteredCadastroMaquinas();
+      if(list.length === 0){
+        html += emptyState(ICON.box, "Nenhuma máquina cadastrada", state.maquinas.length===0 ? "Cadastre a primeira máquina pra poder registrar aluguéis." : "Ajuste a busca ou cadastre uma nova máquina.");
+      } else {
+        html += '<table><thead><tr><th>Nome</th><th>Marca</th><th>Valor/dia</th><th></th></tr></thead><tbody>';
+        list.forEach(function(m){
+          html += '<tr>';
+          html += '<td data-label="Nome">'+escapeHtml(m.nome)+'</td>';
+          html += '<td data-label="Marca" class="cell-sub">'+escapeHtml(m.marca||"—")+'</td>';
+          html += '<td data-label="Valor/dia">'+formatMoeda(m.valorDia)+'</td>';
+          html += '<td><div class="row-actions">';
+          html += '<button class="btn btn-icon btn-sm" data-act="edit-maquina" data-row="'+m.rowIndex+'" title="Editar">'+ICON.edit+'</button>';
+          html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-maquina" data-row="'+m.rowIndex+'" title="Remover">'+ICON.trash+'</button>';
+          html += '</div></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("countCadastroMaquinas").textContent = state.maquinas.length;
+
+    document.getElementById("btnNovaMaquina").addEventListener("click", function(){ openMaquinaCadastroModal(null); });
+    var cmBusca = document.getElementById("cmBusca");
+    cmBusca.addEventListener("input", function(e){ state.buscaCadastroMaquinas = e.target.value; renderCadastroMaquinas(); preserveFocus(cmBusca); });
+
+    root.querySelectorAll('[data-act="edit-maquina"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var m = state.maquinas.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        if(m) openMaquinaCadastroModal(m);
+      });
+    });
+    root.querySelectorAll('[data-act="del-maquina"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var m = state.maquinas.filter(function(x){ return String(x.rowIndex) === btn.dataset.row; })[0];
+        confirmModal("Remover máquina", "Remover \""+escapeHtml(m?m.nome:"")+"\" do cadastro? Aluguéis já registrados não são afetados.", "Remover", function(){
+          api("deleteMaquina", { rowIndex: m.rowIndex }).then(function(){
+            toast("Máquina removida.");
+            loadMaquinas();
+          }).catch(function(err){ toast(err.message, "err"); });
+        }, true);
+      });
+    });
+  }
+
+  function openMaquinaCadastroModal(maquina){
+    var editing = !!(maquina && maquina.rowIndex);
+    var marcasExistentes = Array.from(new Set(state.maquinas.map(function(m){ return m.marca; }).filter(Boolean))).sort();
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-sm">';
+    html += '<div class="modal-head"><h2>'+(editing?"Editar máquina":"Nova máquina")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<div class="field"><label>Nome</label><input type="text" id="mqNome" placeholder="Ex: Roçadeira" value="'+escapeHtml(editing?maquina.nome:"")+'"></div>';
+    html += '<div class="field"><label>Marca (opcional)</label><input type="text" id="mqMarca" list="mqMarcaLista" placeholder="Ex: Stihl" value="'+escapeHtml(editing?maquina.marca:"")+'">';
+    html += '<datalist id="mqMarcaLista">'+marcasExistentes.map(function(mk){ return '<option value="'+escapeHtml(mk)+'">'; }).join("")+'</datalist></div>';
+    html += '<div class="field"><label>Valor por dia (R$)</label><input type="number" min="0" step="0.01" id="mqValorDia" value="'+(editing?Number(maquina.valorDia).toFixed(2):"0.00")+'"></div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Adicionar")+'</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("mSave").addEventListener("click", function(){
+      var nome = document.getElementById("mqNome").value.trim();
+      if(!nome){ toast("Informe o nome da máquina.", "err"); return; }
+      var marca = document.getElementById("mqMarca").value.trim();
+      var valorDia = Number(document.getElementById("mqValorDia").value);
+      if(isNaN(valorDia) || valorDia < 0){ toast("Informe um valor válido.", "err"); return; }
+      var payload = { rowIndex: editing ? maquina.rowIndex : undefined, nome: nome, marca: marca, valorDia: valorDia };
+      var btn = document.getElementById("mSave");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+      var call = editing ? api("updateMaquina", payload) : api("addMaquina", payload);
+      call.then(function(resultData){
+        toast(editing ? "Máquina atualizada." : "Máquina cadastrada.");
+        closeModal();
+        if(editing){
+          var idx = state.maquinas.findIndex(function(x){ return x.rowIndex === maquina.rowIndex; });
+          var atualizado = { rowIndex: maquina.rowIndex, nome: nome, marca: marca, valorDia: valorDia };
+          if(idx > -1){ state.maquinas[idx] = atualizado; } else { state.maquinas.push(atualizado); }
+        } else {
+          state.maquinas.push({ rowIndex: resultData && resultData.rowIndex, nome: nome, marca: marca, valorDia: valorDia });
+        }
+        renderCadastroMaquinas();
+        renderAlugueis();
+        renderHistoricoMaquinas();
+        loadMaquinas();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.textContent = editing ? "Salvar alterações" : "Adicionar";
+      });
+    });
+  }
+
   function preserveFocus(el){
     var val = el.value;
     setTimeout(function(){
@@ -3031,9 +3650,13 @@
       "plantas-pedidos": "Ajuda — Plantas · Pedidos",
       "plantas-historico": "Ajuda — Plantas · Histórico",
       "plantas-cadastro": "Ajuda — Plantas · Cadastro",
+      "maquinas-alugueis": "Ajuda — Máquinas · Aluguéis",
+      "maquinas-historico": "Ajuda — Máquinas · Histórico",
+      "maquinas-cadastro": "Ajuda — Máquinas · Cadastro",
       "clientes": "Ajuda — Clientes"
     };
-    var chave = state.viewGeral === "clientes" ? "clientes" : (state.viewGeral + "-" + (state.viewGeral === "aves" ? state.view : state.viewPlanta));
+    var subView = state.viewGeral === "aves" ? state.view : (state.viewGeral === "plantas" ? state.viewPlanta : state.viewMaquina);
+    var chave = state.viewGeral === "clientes" ? "clientes" : (state.viewGeral + "-" + subView);
 
     var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
     html += '<div class="modal-head"><h2>'+(titulos[chave] || "Como usar o app")+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
@@ -3115,6 +3738,36 @@
         + '<li>Esses tipos cadastrados aqui são o que aparece pra escolher (com busca) na hora de criar um pedido de planta.</li>'
         + '</ul>');
 
+    } else if(chave === "maquinas-alugueis"){
+      html += helpSection(ICON.box, "Registrar e acompanhar aluguéis", '<p>Essa aba mostra <b>todas as máquinas cadastradas</b>, com o status de cada uma.</p><ul>'
+        + '<li>Use <b>+ Novo aluguel</b> para registrar: escolha a máquina, digite o nome do cliente (com busca automática se já for cadastrado), e as datas de início e devolução.</li>'
+        + '<li>Cada máquina aparece com uma etiqueta de status: <span class="badge badge-disponivel">Disponível</span> (verde) ou <span class="badge badge-alugada">Alugada</span> (âmbar).</li>'
+        + '<li>Quando alugada, a linha mostra o cliente, a data marcada pra devolução, e o <b>valor do aluguel</b> — calculado sozinho (valor por dia x quantos dias entre início e devolução).</li>'
+        + '<li>O lápis '+ICON.edit+' edita o aluguel (datas, cliente, máquina); o ícone de check '+ICON.check+' marca a máquina como devolvida, liberando ela como Disponível de novo.</li>'
+        + '<li>Se o nome do cliente não estiver cadastrado, o app oferece cadastrar na hora, igual acontece nos pedidos de Aves e Plantas.</li>'
+        + '</ul>');
+
+    } else if(chave === "maquinas-historico"){
+      html += helpSection(ICON.filter, "Histórico de aluguéis", '<p>Por padrão mostra os aluguéis <b>encerrados</b> (já devolvidos). Dá pra filtrar por:</p><ul>'
+        + '<li><b>Máquina</b> específica.</li>'
+        + '<li><b>Cliente</b> (busca por nome).</li>'
+        + '<li><b>Status</b>: ativos, encerrados ou todos.</li>'
+        + '<li><b>Período</b>: data "De" e/ou "Até", com base na data de início do aluguel.</li>'
+        + '</ul>');
+      html += helpSection(ICON.money, "Valor total", '<p>Acima da lista aparece o <b>valor total somado</b> dos aluguéis que estão sendo mostrados no momento — muda automaticamente conforme você ajusta qualquer filtro.</p>');
+      html += helpSection(ICON.check, "Editar, devolver, reabrir ou remover", '<ul>'
+        + '<li>'+ICON.edit+' <b>Editar</b> altera datas, cliente ou a máquina do aluguel.</li>'
+        + '<li>'+ICON.check+' Marca como <b>devolvida</b> (some da lista de "Alugadas" na aba Aluguéis).</li>'
+        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um aluguel encerrado pra ativo.</li>'
+        + '<li>'+ICON.trash+' <b>Remover</b> apaga o registro da planilha de vez.</li>'
+        + '</ul>');
+
+    } else if(chave === "maquinas-cadastro"){
+      html += helpSection(ICON.stock, "Cadastro de máquinas", '<p>Aqui você cadastra as máquinas que aluga, com nome, marca (opcional) e valor por dia.</p><ul>'
+        + '<li>Use <b>+ Nova máquina</b> para cadastrar. Ao digitar a marca, se já existir uma marca igual cadastrada em outra máquina, ela aparece como sugestão pra completar sozinha.</li>'
+        + '<li>O lápis '+ICON.edit+' edita; a lixeira '+ICON.trash+' remove do cadastro (aluguéis já registrados não são afetados).</li>'
+        + '</ul>');
+
     } else {
       // plantas-pedidos (padrão)
       html += helpSection(ICON.box, "Criar e editar pedidos", '<p>Mostra só os pedidos <b>ativos</b> — os já encerrados ficam na aba Histórico.</p><ul>'
@@ -3174,7 +3827,7 @@
   // NAV / BOOT
   // ---------------------------------------------------------------
 
-  // Nível superior: Aves / Plantas / Clientes
+  // Nível superior: Aves / Plantas / Máquinas / Clientes
   document.querySelectorAll(".tab-geral").forEach(function(tab){
     tab.addEventListener("click", function(){
       document.querySelectorAll(".tab-geral").forEach(function(t){ t.classList.remove("active"); });
@@ -3182,6 +3835,7 @@
       state.viewGeral = tab.dataset.geral;
       document.getElementById("secaoAves").style.display = state.viewGeral === "aves" ? "" : "none";
       document.getElementById("secaoPlantas").style.display = state.viewGeral === "plantas" ? "" : "none";
+      document.getElementById("secaoMaquinas").style.display = state.viewGeral === "maquinas" ? "" : "none";
       document.getElementById("viewClientes").style.display = state.viewGeral === "clientes" ? "" : "none";
     });
   });
@@ -3208,6 +3862,18 @@
       document.getElementById("viewPlantasPedidos").style.display = state.viewPlanta === "pedidos" ? "" : "none";
       document.getElementById("viewPlantasHistorico").style.display = state.viewPlanta === "historico" ? "" : "none";
       document.getElementById("viewPlantasCadastro").style.display = state.viewPlanta === "cadastro" ? "" : "none";
+    });
+  });
+
+  // Sub-abas dentro de Máquinas: Aluguéis / Histórico / Cadastro
+  document.querySelectorAll(".tab-maquina").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      document.querySelectorAll(".tab-maquina").forEach(function(t){ t.classList.remove("active"); });
+      tab.classList.add("active");
+      state.viewMaquina = tab.dataset.viewmaquina;
+      document.getElementById("viewAlugueis").style.display = state.viewMaquina === "alugueis" ? "" : "none";
+      document.getElementById("viewHistoricoMaquinas").style.display = state.viewMaquina === "historico" ? "" : "none";
+      document.getElementById("viewCadastroMaquinas").style.display = state.viewMaquina === "cadastro" ? "" : "none";
     });
   });
 
@@ -3337,10 +4003,17 @@
       erro.style.display = "none";
       btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
       senhaAtual = tentativa;
-      api("getMeta").then(function(){
+      api("getInicialCore").then(function(data){
         try { sessionStorage.setItem("aves_senha", tentativa); } catch(e){}
         closeModal();
-        iniciarAppLiberado();
+        state.loadingPlantas = true;
+        state.loadingPedidosPlantas = true;
+        state.loadingMaquinas = true;
+        state.loadingAlugueis = true;
+        aplicarDadosCore(data);
+        loadResto();
+        setTimeout(checarAtualizacaoPeriodica, 5000);
+        setInterval(checarAtualizacaoPeriodica, UPDATE_CHECK_INTERVAL_MS);
       }).catch(function(err){
         senhaAtual = null;
         erro.textContent = (err.message && err.message.indexOf("Senha") > -1) ? "Senha incorreta. Tente de novo." : "Não foi possível verificar agora — confira sua conexão.";
