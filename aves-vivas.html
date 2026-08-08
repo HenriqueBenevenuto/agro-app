@@ -227,6 +227,7 @@
   .btn-primary{background:var(--green);border-color:var(--green);color:#fff;}
   .btn-primary:hover{background:var(--green-dark);border-color:var(--green-dark);}
   .btn-danger-ghost{color:var(--red);border-color:var(--red-soft);background:var(--red-soft);}
+  .btn-success-ghost{color:var(--green-dark);border-color:var(--green-soft);background:var(--green-soft);}
   .btn-whatsapp{color:#1F8A4C;border-color:#D6EEDD;background:#EAF7EF;width:44px;height:44px;padding:6px;}
   .btn-whatsapp:hover{border-color:#1F8A4C;}
   a.btn{text-decoration:none;}
@@ -2108,7 +2109,7 @@
       if(g.status === "Encerrado"){
         html += '<button class="btn btn-icon btn-sm" data-act="reabrir" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Reabrir pedido">'+ICON.undo+'</button>';
       } else {
-        html += '<button class="btn btn-icon btn-sm" data-act="encerrar" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Encerrar pedido">'+ICON.check+'</button>';
+        html += '<button class="btn btn-icon btn-sm btn-success-ghost" data-act="encerrar" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Encerrar pedido">'+ICON.check+'</button>';
       }
       html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="del-pedido" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Remover">'+ICON.trash+'</button>';
       html += '</div></td>';
