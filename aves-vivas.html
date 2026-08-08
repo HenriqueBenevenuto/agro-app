@@ -153,6 +153,7 @@
   .estoque-head:hover{background:var(--surface-2);}
   .estoque-head-label{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
   .estoque-total{font-size:30px;font-weight:700;color:var(--green-dark);letter-spacing:-0.01em;}
+  .estoque-total-barra{color:var(--ink-mute);font-weight:500;margin:0 2px;}
   .estoque-chevron{color:var(--ink-mute);display:flex;transition:transform .15s;flex-shrink:0;}
   .estoque-chevron.expandido{transform:rotate(180deg);}
   .estoque-head-aves{
@@ -1093,12 +1094,17 @@
       return { categoria: c.nome, encomendado: encomendado, pedido: pedido, sobrando: sobrando, preco: precoDe(c.nome) };
     });
     var totalSobrando = rows.reduce(function(s,r){ return s + r.sobrando; }, 0);
+    var totalEncomendado = rows.reduce(function(s,r){ return s + r.encomendado; }, 0);
+    var totalPedido = rows.reduce(function(s,r){ return s + r.pedido; }, 0);
     var expandido = state.estoqueExpandido;
 
     var html = '<div class="card estoque-card">';
     html += '<div class="estoque-head-aves">';
     html += '<button type="button" class="estoque-head-clicavel" id="estoqueToggle">';
-    html += '<div><div class="estoque-head-label">Sobrando ao todo</div><div class="estoque-total'+(totalSobrando<0?' neg':'')+'">'+totalSobrando+' aves</div></div>';
+    html += '<div style="display:flex;gap:28px;align-items:flex-start;">';
+    html += '<div><div class="estoque-head-label">Pedidos</div><div class="estoque-total">'+totalEncomendado+'<span class="estoque-total-barra">/</span>'+totalPedido+'</div></div>';
+    html += '<div><div class="estoque-head-label">Sobrando</div><div class="estoque-total'+(totalSobrando<0?' neg':'')+'">'+totalSobrando+' aves</div></div>';
+    html += '</div>';
     html += '<span class="estoque-chevron'+(expandido?' expandido':'')+'">'+ICON.chevron+'</span>';
     html += '</button>';
     html += '<button type="button" class="btn btn-icon btn-sm" id="btnGerenciarTipos" title="Editar tipos de ave / criar novo tipo" style="margin-left:8px;flex-shrink:0;">'+ICON.gear+'</button>';
@@ -1668,7 +1674,8 @@
         api("reabrirPedido", { pedidoId: pedidoId }).then(function(){
           toast("Pedido voltou pra ativo.");
           renderGta();
-          renderPedidos();
+          loadPedidos();
+          loadEstoque();
         }).catch(function(err){ toast(err.message, "err"); });
       });
     });
@@ -2153,7 +2160,9 @@
           return;
         }
 
-        confirmModal("Encerrar pedido", "Encerrar o pedido de " + (g?g.nome:"") + "? Ele continua no histórico, marcado como encerrado.", "Encerrar", function(){
+        var mensagem = "Encerrar pedido de " + g.nome + "? Pedidos encerrados esperam na aba GTA até terminar de vender todas as aves, pra aí gerar a guia de transporte.";
+
+        confirmModal("Encerrar pedido", mensagem, "Encerrar", function(){
           api("encerrarPedido", { pedidoId: g.pedidoId }).then(function(){
             toast("Pedido encerrado.");
             loadPedidos();
@@ -2182,7 +2191,9 @@
           renderPedidos();
           renderHistorico();
           toast("Pedido removido.");
-          api("deletePedido", { pedidoId: pedidoId }).catch(function(err){
+          api("deletePedido", { pedidoId: pedidoId }).then(function(){
+            loadEstoque(); // se era um pedido encerrado, devolve a quantidade pro estoque
+          }).catch(function(err){
             toast("Não foi possível remover: " + err.message, "err");
             loadPedidos();
           });
