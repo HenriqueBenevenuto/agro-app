@@ -1693,29 +1693,15 @@
       btnImprimir.addEventListener("click", function(){
         var gta = document.getElementById("gtaCodigo").value.trim();
         if(!gta){ toast("Informe o código GTA.", "err"); return; }
-        var extras = {
-          estabelecimento: "Agro Benevenuto",
-          municipio: "Ernestina",
-          responsavel: "Sandro Benevenuto"
-        };
-        btnImprimir.disabled = true; btnImprimir.innerHTML = '<div class="spinner"></div>';
 
         var itensParaSalvar = [];
         ordem.forEach(function(g){
           g.itens.forEach(function(it){
-            itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.valorTotal });
+            itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, especie: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.valorTotal });
           });
         });
 
-        api("registrarRelacaoVenda", { gta: gta, loteId: state.ultimoLoteId, itens: itensParaSalvar }).then(function(data){
-          state.relacoesVenda = data || state.relacoesVenda;
-          imprimirRelacaoVenda(gta, ordem, extras);
-          toast("Relação salva no histórico.");
-          renderGta();
-        }).catch(function(err){
-          toast(err.message, "err");
-          btnImprimir.disabled = false; btnImprimir.innerHTML = ICON.check + ' Imprimir e salvar';
-        });
+        abrirRevisaoEspecieModal(gta, itensParaSalvar, state.ultimoLoteId);
       });
     }
   }
@@ -1727,6 +1713,64 @@
   // imprimir sobrar muito espaço em branco, ou se cortar antes da hora,
   // é só ajustar esse número.
   var LINHAS_POR_FOLHA = 22;
+
+  // Etapa de conferência antes de imprimir de fato: deixa revisar/corrigir
+  // o texto que vai na coluna "Espécie" de cada linha, já que às vezes o
+  // nome que precisa aparecer na GTA é diferente do nome interno do
+  // sistema (varia conforme a nota do fornecedor).
+  function abrirRevisaoEspecieModal(gta, itensParaSalvar, loteId){
+    var html = '<div class="overlay overlay-nested" id="modalOverlayRevisao"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>Conferir descrição das aves</h2></div>';
+    html += '<p class="help" style="margin:0 0 14px;">Confira o texto que vai sair na coluna "Espécie" da GTA — corrija se precisar bater com o nome usado na nota do fornecedor.</p>';
+    html += '<div class="gerenciar-tipos-lista" style="max-height:320px;overflow-y:auto;">';
+    itensParaSalvar.forEach(function(it, idx){
+      html += '<div class="gerenciar-tipo-linha" style="align-items:center;gap:12px;">';
+      html += '<div style="flex:1;min-width:0;"><b>'+escapeHtml(it.nome)+'</b> <span class="cell-sub">('+it.qtd+'x)</span></div>';
+      html += '<input type="text" class="revEspecie" data-idx="'+idx+'" value="'+escapeHtml(it.especie)+'" style="width:220px;">';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancelRev">Cancelar</button><button class="btn btn-primary" id="mConfirmarRev">'+ICON.check+' Confirmar e imprimir</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot2").innerHTML = html;
+
+    document.querySelectorAll(".revEspecie").forEach(function(inp){
+      inp.addEventListener("input", function(){ itensParaSalvar[Number(inp.dataset.idx)].especie = inp.value; });
+    });
+
+    document.getElementById("mCancelRev").addEventListener("click", closeModal2);
+    document.getElementById("modalOverlayRevisao").addEventListener("click", function(e){ if(e.target.id === "modalOverlayRevisao") closeModal2(); });
+
+    document.getElementById("mConfirmarRev").addEventListener("click", function(){
+      var btn = document.getElementById("mConfirmarRev");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+
+      api("registrarRelacaoVenda", { gta: gta, loteId: loteId || "", itens: itensParaSalvar }).then(function(data){
+        state.relacoesVenda = data || state.relacoesVenda;
+        closeModal2();
+        closeModal();
+        imprimirRelacaoVendaComEspecie(gta, itensParaSalvar);
+        toast("Relação salva no histórico.");
+        renderGta();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.innerHTML = ICON.check + ' Confirmar e imprimir';
+      });
+    });
+  }
+
+  function imprimirRelacaoVendaComEspecie(gta, itensParaSalvar){
+    var agora = new Date();
+    var dataFormatada = String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear();
+    var linhasFlat = itensParaSalvar.map(function(it){
+      return {
+        data: dataFormatada, comprador: it.nome, telefone: it.telefone || "", endereco: it.endereco || "", municipio: it.municipio || "",
+        especie: it.especie || it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+      };
+    });
+    var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
+    imprimirLinhasGta(linhasFlat, gta, extras, dataFormatada, agora);
+  }
 
   function imprimirRelacaoVenda(gta, grupos, extras){
     var agora = new Date();
@@ -1753,7 +1797,7 @@
       return {
         data: (registro.data || "").split(" ")[0],
         comprador: it.nome, telefone: it.telefone || "", endereco: it.endereco || "", municipio: it.municipio || "",
-        especie: it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+        especie: it.especie || it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
       };
     });
     var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
@@ -1798,7 +1842,7 @@
           h += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost gmRemoveLinha" data-idx="'+idx+'" style="position:absolute;top:10px;right:10px;" title="Remover">'+ICON.trash+'</button>';
         }
         h += '<div class="field-row">';
-        h += '<div class="field"><label>Cliente</label><input type="text" class="gmCliente" data-idx="'+idx+'" value="'+escapeHtml(l.cliente)+'" placeholder="Nome"></div>';
+        h += '<div class="field autocomplete"><label>Cliente</label><input type="text" class="gmCliente" data-idx="'+idx+'" value="'+escapeHtml(l.cliente)+'" placeholder="Nome" autocomplete="off"><div class="gmAutocomplete" data-idx="'+idx+'"></div></div>';
         h += '<div class="field"><label>Telefone</label><input type="tel" class="gmTelefone" data-idx="'+idx+'" value="'+escapeHtml(l.telefone)+'" placeholder="(54) 99999-9999"></div>';
         h += '</div>';
         h += '<div class="field-row">';
@@ -1806,20 +1850,41 @@
         h += '<div class="field"><label>Município</label><input type="text" class="gmMunicipio" data-idx="'+idx+'" value="'+escapeHtml(l.municipio)+'" placeholder="Município"></div>';
         h += '</div>';
         h += '<div class="field-row">';
-        h += '<div class="field"><label>Tipo de ave</label><select class="gmCategoria" data-idx="'+idx+'">'+CATEGORIAS.map(function(c){
-          return '<option value="'+escapeHtml(c.nome)+'"'+(c.nome===l.categoria?' selected':'')+'>'+escapeHtml(c.nome)+'</option>';
-        }).join("")+'</select></div>';
+        h += '<div class="field"><label>Espécie / tipo de ave</label><input type="text" class="gmCategoria" list="gmCategoriaLista" data-idx="'+idx+'" value="'+escapeHtml(l.categoria)+'" placeholder="Ex: Postura Branca"></div>';
         h += '<div class="field"><label>Quantidade</label><input type="text" inputmode="numeric" class="gmQtd" data-idx="'+idx+'" value="'+(l.qtd===0?"":l.qtd)+'" placeholder="Qtd"></div>';
         h += '</div>';
         h += '</div>';
         return h;
-      }).join("");
+      }).join("") + '<datalist id="gmCategoriaLista">'+CATEGORIAS.map(function(c){ return '<option value="'+escapeHtml(c.nome)+'">'; }).join("")+'</datalist>';
 
-      wrap.querySelectorAll(".gmCliente").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].cliente = inp.value; }); });
+      wrap.querySelectorAll(".gmCliente").forEach(function(inp){
+        inp.addEventListener("input", function(){
+          var idx = Number(inp.dataset.idx);
+          linhas[idx].cliente = inp.value;
+          var box = wrap.querySelector('.gmAutocomplete[data-idx="'+idx+'"]');
+          var q = inp.value.trim().toLowerCase();
+          if(q.length < 2){ box.innerHTML = ""; return; }
+          var matches = state.clientes.filter(function(c){ return c.nome.toLowerCase().indexOf(q) !== -1; }).slice(0, 6);
+          if(matches.length === 0){ box.innerHTML = ""; return; }
+          box.innerHTML = '<div class="autocomplete-list">' + matches.map(function(c){
+            return '<div class="autocomplete-item" data-nome="'+escapeHtml(c.nome)+'"><div class="n">'+escapeHtml(c.nome)+'</div><div class="m">'+escapeHtml(c.municipio||"")+' · '+escapeHtml(c.telefone||"")+'</div></div>';
+          }).join("") + '</div>';
+          box.querySelectorAll(".autocomplete-item").forEach(function(item, mIdx){
+            item.addEventListener("click", function(){
+              var c = matches[mIdx];
+              linhas[idx].cliente = c.nome;
+              linhas[idx].telefone = c.telefone || "";
+              linhas[idx].endereco = c.endereco || "";
+              linhas[idx].municipio = c.municipio || "";
+              renderLinhasGm();
+            });
+          });
+        });
+      });
       wrap.querySelectorAll(".gmTelefone").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].telefone = inp.value; }); });
       wrap.querySelectorAll(".gmEndereco").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].endereco = inp.value; }); });
       wrap.querySelectorAll(".gmMunicipio").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].municipio = inp.value; }); });
-      wrap.querySelectorAll(".gmCategoria").forEach(function(sel){ sel.addEventListener("change", function(){ linhas[Number(sel.dataset.idx)].categoria = sel.value; }); });
+      wrap.querySelectorAll(".gmCategoria").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].categoria = inp.value; }); });
       wrap.querySelectorAll(".gmQtd").forEach(function(inp){
         inp.addEventListener("input", function(){
           linhas[Number(inp.dataset.idx)].qtd = Number(inp.value) || 0;
@@ -1852,6 +1917,28 @@
       if(!gta){ toast("Informe o código GTA.", "err"); return; }
       var validas = linhas.filter(function(l){ return l.cliente.trim() && (Number(l.qtd)||0) > 0; });
       if(validas.length === 0){ toast("Preencha ao menos uma venda com cliente e quantidade.", "err"); return; }
+
+      // Se algum cliente digitado não estiver cadastrado, oferece cadastrar
+      // antes de seguir — igual já acontece nos pedidos normais.
+      var naoEncontrado = validas.filter(function(l){
+        return !state.clientes.some(function(cl){ return cl.nome.trim().toLowerCase() === l.cliente.trim().toLowerCase(); });
+      })[0];
+      if(naoEncontrado){
+        confirmModal(
+          "Cliente não encontrado",
+          "\""+escapeHtml(naoEncontrado.cliente)+"\" ainda não está cadastrado em Clientes. Deseja cadastrar esse cliente agora?",
+          "Sim, cadastrar",
+          function(){
+            openClienteModal(
+              { nome: naoEncontrado.cliente.trim(), telefone: naoEncontrado.telefone.trim(), endereco: naoEncontrado.endereco.trim(), municipio: naoEncontrado.municipio.trim() },
+              null,
+              true
+            );
+          },
+          false, null, true
+        );
+        return;
+      }
 
       var partes = dataInput.split("-");
       var dataFormatada = partes[2] + "/" + partes[1] + "/" + partes[0];
@@ -2182,7 +2269,7 @@
             html += '</div>';
             html += r.itens.map(function(it){
               var sub = it.subtipo ? " ("+it.subtipo+")" : "";
-              return '<div class="tipo-linha tipo-linha-gta"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+escapeHtml(sub)+'</span> <span class="cell-sub">'+escapeHtml(it.nome)+'</span></div>';
+              return '<div class="tipo-linha tipo-linha-gta"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.especie||it.categoria)+escapeHtml(sub)+'</span> <span class="cell-sub">'+escapeHtml(it.nome)+'</span></div>';
             }).join("");
             html += '</div>';
           }
