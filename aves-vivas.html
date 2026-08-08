@@ -1718,7 +1718,7 @@
   // o texto que vai na coluna "Espécie" de cada linha, já que às vezes o
   // nome que precisa aparecer na GTA é diferente do nome interno do
   // sistema (varia conforme a nota do fornecedor).
-  function abrirRevisaoEspecieModal(gta, itensParaSalvar, loteId){
+  function abrirRevisaoEspecieModal(gta, itensParaSalvar, loteId, dataFormatadaCustom){
     var html = '<div class="overlay overlay-nested" id="modalOverlayRevisao"><div class="modal modal-help">';
     html += '<div class="modal-head"><h2>Conferir descrição das aves</h2></div>';
     html += '<p class="help" style="margin:0 0 14px;">Confira o texto que vai sair na coluna "Espécie" da GTA — corrija se precisar bater com o nome usado na nota do fornecedor.</p>';
@@ -1749,7 +1749,7 @@
         state.relacoesVenda = data || state.relacoesVenda;
         closeModal2();
         closeModal();
-        imprimirRelacaoVendaComEspecie(gta, itensParaSalvar);
+        imprimirRelacaoVendaComEspecie(gta, itensParaSalvar, dataFormatadaCustom);
         toast("Relação salva no histórico.");
         renderGta();
       }).catch(function(err){
@@ -1759,9 +1759,9 @@
     });
   }
 
-  function imprimirRelacaoVendaComEspecie(gta, itensParaSalvar){
+  function imprimirRelacaoVendaComEspecie(gta, itensParaSalvar, dataFormatadaCustom){
     var agora = new Date();
-    var dataFormatada = String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear();
+    var dataFormatada = dataFormatadaCustom || (String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear());
     var linhasFlat = itensParaSalvar.map(function(it){
       return {
         data: dataFormatada, comprador: it.nome, telefone: it.telefone || "", endereco: it.endereco || "", municipio: it.municipio || "",
@@ -1815,7 +1815,7 @@
       toast("Nenhum tipo de ave cadastrado ainda.", "err");
       return;
     }
-    var linhas = [{ cliente: "", telefone: "", endereco: "", municipio: "", categoria: CATEGORIAS[0].nome, qtd: 1 }];
+    var linhas = [{ cliente: "", telefone: "", endereco: "", municipio: "", categoria: "", qtd: 1 }];
 
     var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
     html += '<div class="modal-head"><h2>Gerar GTA manual</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
@@ -1902,7 +1902,7 @@
     renderLinhasGm();
 
     document.getElementById("btnAddLinhaGm").addEventListener("click", function(){
-      linhas.push({ cliente: "", telefone: "", endereco: "", municipio: "", categoria: CATEGORIAS[0].nome, qtd: 1 });
+      linhas.push({ cliente: "", telefone: "", endereco: "", municipio: "", categoria: "", qtd: 1 });
       renderLinhasGm();
     });
 
@@ -1943,50 +1943,16 @@
       var partes = dataInput.split("-");
       var dataFormatada = partes[2] + "/" + partes[1] + "/" + partes[0];
 
-      var grupos = validas.map(function(l){
-        var valorTotal = (Number(l.qtd)||0) * precoDe(l.categoria);
+      var itensParaSalvar = validas.map(function(l){
         return {
           nome: l.cliente.trim(), telefone: l.telefone.trim(), endereco: l.endereco.trim(), municipio: l.municipio.trim(),
-          itens: [{ categoria: l.categoria, subtipo: "", qtd: Number(l.qtd)||0, valorTotal: valorTotal }]
+          categoria: l.categoria, especie: l.categoria, subtipo: "", qtd: Number(l.qtd)||0,
+          valorTotal: (Number(l.qtd)||0) * precoDe(l.categoria)
         };
       });
 
-      var itensParaSalvar = [];
-      grupos.forEach(function(g){
-        g.itens.forEach(function(it){
-          itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, subtipo: it.subtipo, qtd: it.qtd, valorTotal: it.valorTotal });
-        });
-      });
-
-      var btn = document.getElementById("mGerar");
-      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
-
-      api("registrarRelacaoVenda", { gta: gta, loteId: "", itens: itensParaSalvar }).then(function(data){
-        state.relacoesVenda = data || state.relacoesVenda;
-        closeModal();
-        imprimirGtaManual(gta, grupos, dataFormatada);
-        toast("GTA gerada e salva no histórico.");
-        renderGta();
-      }).catch(function(err){
-        toast(err.message, "err");
-        btn.disabled = false; btn.innerHTML = ICON.check + ' Gerar e imprimir';
-      });
+      abrirRevisaoEspecieModal(gta, itensParaSalvar, "", dataFormatada);
     });
-  }
-
-  function imprimirGtaManual(gta, grupos, dataFormatada){
-    var linhasFlat = [];
-    grupos.forEach(function(g){
-      g.itens.forEach(function(it){
-        linhasFlat.push({
-          data: dataFormatada, comprador: g.nome, telefone: g.telefone || "",
-          endereco: g.endereco || "", municipio: g.municipio || "",
-          especie: it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
-        });
-      });
-    });
-    var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
-    imprimirLinhasGta(linhasFlat, gta, extras, dataFormatada, new Date());
   }
 
   function imprimirLinhasGta(linhas, gta, extras, dataFormatada, agora){
@@ -2265,7 +2231,10 @@
             html += '<div class="cell-sub" style="margin-bottom:6px;">Emitida em '+escapeHtml(r.data)+'</div>';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
             html += '<span class="cell-sub">'+clientesUnicos.length+' cliente(s) — <b>'+formatMoeda(r.valorTotal)+'</b></span>';
+            html += '<div style="display:flex;gap:8px;">';
             html += '<button class="btn btn-icon btn-sm" data-act="reimprimir-relacao" data-row="'+r.rowIndex+'" title="Reimprimir" style="padding:5px;width:38px;height:38px;">'+ICON.printer+'</button>';
+            html += '<button class="btn btn-icon btn-sm btn-danger-ghost" data-act="excluir-relacao" data-row="'+r.rowIndex+'" title="Excluir">'+ICON.trash+'</button>';
+            html += '</div>';
             html += '</div>';
             html += r.itens.map(function(it){
               var sub = it.subtipo ? " ("+it.subtipo+")" : "";
@@ -2295,6 +2264,19 @@
         e.stopPropagation();
         var registro = (state.relacoesVenda||[]).filter(function(r){ return String(r.rowIndex) === btn.dataset.row; })[0];
         if(registro) reimprimirRelacao(registro);
+      });
+    });
+    root.querySelectorAll('[data-act="excluir-relacao"]').forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var registro = (state.relacoesVenda||[]).filter(function(r){ return String(r.rowIndex) === btn.dataset.row; })[0];
+        confirmModal("Excluir relação", "Excluir a relação GTA "+escapeHtml(registro?registro.gta:"")+" do histórico? Essa ação não pode ser desfeita.", "Excluir", function(){
+          api("excluirRelacaoVenda", { rowIndex: Number(btn.dataset.row) }).then(function(data){
+            state.relacoesVenda = data || [];
+            toast("Relação excluída.");
+            renderHistoricoRelacoes();
+          }).catch(function(err){ toast(err.message, "err"); });
+        }, true);
       });
     });
     root.querySelectorAll('[data-relacao-toggle]').forEach(function(btn){
