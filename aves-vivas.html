@@ -98,12 +98,20 @@
   }
   .tab.active .count{background:var(--amber-soft);color:var(--amber);}
   .tab-help-btn{
-    display:flex;align-items:center;gap:7px;padding:9px 16px;margin-bottom:9px;
+    display:flex;align-items:center;gap:7px;padding:9px 16px;
     background:var(--amber-soft);border:1px solid transparent;border-radius:20px;
     color:var(--amber);font-size:14px;font-weight:700;
     cursor:pointer;transition:all .15s;flex-shrink:0;
   }
   .tab-help-btn:hover{background:var(--amber);color:#fff;}
+  .tabs-geral-right{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .tab-order-btn{
+    display:flex;align-items:center;gap:7px;padding:9px 16px;
+    background:var(--green-soft);border:1px solid transparent;border-radius:20px;
+    color:var(--green-dark);font-size:14px;font-weight:700;
+    cursor:pointer;transition:all .15s;flex-shrink:0;
+  }
+  .tab-order-btn:hover{background:var(--green-dark);color:#fff;}
 
   .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;}
   .toolbar .spacer{flex:1;}
@@ -120,7 +128,11 @@
   .ultima-encomenda{padding:16px 20px 20px;border-top:1px solid var(--line);}
   .ultima-encomenda-titulo{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
   .ultima-encomenda-footer{display:flex;justify-content:flex-end;margin-top:12px;}
-  .historico-encomenda-item{padding:14px 0;border-bottom:1px solid var(--line);}
+  .historico-encomenda-item{padding:14px 20px;border-bottom:1px solid var(--line);}
+  .historico-relacao-cabecalho{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0;border:none;background:none;cursor:pointer;text-align:left;font-family:inherit;}
+  .historico-relacao-gta{font-size:18px;font-weight:700;color:var(--ink);}
+  .historico-relacao-data-resumo{font-size:18px;font-weight:700;color:var(--ink-mute);}
+  .historico-relacao-detalhes{padding-top:10px;}
   .historico-encomenda-item:last-child{border-bottom:none;}
   .historico-encomenda-data{font-size:12.5px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
 
@@ -163,6 +175,8 @@
   .estoque-sobrando.neg{color:var(--red);}
 
   .tipo-linha{margin-bottom:4px;}
+  .tipo-linha-gta{padding:6px 0;border-bottom:1px solid var(--line);}
+  .tipo-linha-gta:last-child{border-bottom:none;}
   .tipo-linha:last-child{margin-bottom:0;}
   .tipo-qtd{font-weight:700;font-size:16px;color:var(--ink);}
 
@@ -360,6 +374,19 @@
     .imp-item-linha{margin-bottom:2px;}
     .imp-tabela tfoot td{font-weight:700;border-top:2px solid #000;}
     .imp-rodape{margin-top:16px;font-size:10.5px;color:#555;}
+
+    .gta-doc-cabecalho{text-align:center;margin-bottom:14px;}
+    .gta-doc-cabecalho div{font-size:12px;font-weight:700;line-height:1.5;}
+    .gta-doc-cabecalho h1{font-size:16px;margin:8px 0 0;text-decoration:underline;}
+    .gta-doc-info{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:12px;}
+    .gta-doc-info td{padding:3px 0;}
+    .gta-doc-tabela{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;}
+    .gta-doc-tabela th, .gta-doc-tabela td{border:1px solid #000;padding:5px 6px;text-align:left;vertical-align:top;}
+    .gta-doc-tabela th{background:#ddd !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:10.5px;text-transform:uppercase;text-align:center;}
+    .gta-doc-tabela td{height:20px;}
+    .gta-doc-legal{font-size:10px;color:#333;margin:0 0 22px;line-height:1.5;}
+    .gta-doc-rodape{width:100%;border-collapse:collapse;font-size:11px;}
+    .gta-doc-rodape td{width:50%;padding:0 10px;vertical-align:top;}
   }
 </style>
 </head>
@@ -399,21 +426,29 @@
       <button class="tab-geral" data-geral="maquinas">Máquinas</button>
       <button class="tab-geral" data-geral="clientes">Clientes <span class="count" id="countClientes">0</span></button>
     </div>
-    <button class="tab-help-btn" id="btnHelp" title="Ajuda">
-      <span>Ajuda</span>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
-    </button>
+    <div class="tabs-geral-right">
+      <button class="tab-order-btn" id="btnOrdem" title="Ordem de vendas" style="display:none;">
+        <span>Ordem</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
+      </button>
+      <button class="tab-help-btn" id="btnHelp" title="Ajuda">
+        <span>Ajuda</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
+      </button>
+    </div>
   </div>
 
   <div id="secaoAves">
     <div class="tabs">
       <button class="tab tab-aves active" data-view="pedidos">Pedidos <span class="count" id="countPedidos">0</span></button>
       <button class="tab tab-aves" data-view="encomendas">Encomendas</button>
+      <button class="tab tab-aves" data-view="gta">GTA <span class="count" id="countRelacoesVenda">0</span></button>
       <button class="tab tab-aves" data-view="historico">Histórico <span class="count" id="countHistorico">0</span></button>
     </div>
     <div id="viewPedidos"></div>
     <div id="viewHistorico" style="display:none;"></div>
     <div id="viewEncomendas" style="display:none;"></div>
+    <div id="viewGta" style="display:none;"></div>
   </div>
 
   <div id="secaoPlantas" style="display:none;">
@@ -488,6 +523,13 @@
     estoque: {},
     encomendasExtras: {},
     historicoEncomendas: [],
+    ultimoLoteId: "",
+    relacoesVenda: [],
+    loadingRelacoesVenda: false,
+    histRelacaoGta: "",
+    histRelacaoDataDe: "",
+    histRelacaoDataAte: "",
+    relacoesExpandidas: {},
 
     maquinas: [],
     alugueis: [],
@@ -569,6 +611,7 @@
     state.pedidos = (data && data.pedidos) || [];
     state.estoque = (data && data.estoque) || {};
     state.precos = (data && data.precos) || {};
+    state.ultimoLoteId = (data && data.ultimoLoteId) || "";
     state.loadingClientes = false;
     state.loadingPedidos = false;
     setStatus(true, "Conectado");
@@ -584,17 +627,22 @@
     state.historicoEncomendas = (data && data.historicoEncomendas) || [];
     state.maquinas = (data && data.maquinas) || [];
     state.alugueis = (data && data.alugueis) || [];
+    state.relacoesVenda = (data && data.relacoesVenda) || [];
     state.loadingPlantas = false;
     state.loadingPedidosPlantas = false;
     state.loadingMaquinas = false;
     state.loadingAlugueis = false;
+    state.loadingRelacoesVenda = false;
     renderPlantasPedidos();
     renderPlantasHistorico();
     renderCadastroPlantas();
     renderAlugueis();
     renderHistoricoMaquinas();
     renderCadastroMaquinas();
+    var countRV = document.getElementById("countRelacoesVenda");
+    if(countRV) countRV.textContent = state.relacoesVenda.length;
     if(state.view === "encomendas") renderEncomendas();
+    if(state.view === "gta") renderGta();
   }
 
   // Mantida por compatibilidade (usada em alguns fluxos que ainda pedem tudo de uma vez).
@@ -828,6 +876,8 @@
     money: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.9-2.5 2s1 1.6 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5"/><path d="M12 6.5v11"/></svg>',
     chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
     historico: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.14-8.36L3 8"/><path d="M12 7v5l3 3"/></svg>',
+    printer: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18H6.2C5.0799 18 4.51984 18 4.09202 17.782C3.71569 17.5903 3.40973 17.2843 3.21799 16.908C3 16.4802 3 15.9201 3 14.8V10.2C3 9.0799 3 8.51984 3.21799 8.09202C3.40973 7.71569 3.71569 7.40973 4.09202 7.21799C4.51984 7 5.0799 7 6.2 7H7M17 18H17.8C18.9201 18 19.4802 18 19.908 17.782C20.2843 17.5903 20.5903 17.2843 20.782 16.908C21 16.4802 21 15.9201 21 14.8V10.2C21 9.07989 21 8.51984 20.782 8.09202C20.5903 7.71569 20.2843 7.40973 19.908 7.21799C19.4802 7 18.9201 7 17.8 7H17M7 11H7.01M17 7V5.4V4.6C17 4.03995 17 3.75992 16.891 3.54601C16.7951 3.35785 16.6422 3.20487 16.454 3.10899C16.2401 3 15.9601 3 15.4 3H8.6C8.03995 3 7.75992 3 7.54601 3.10899C7.35785 3.20487 7.20487 3.35785 7.10899 3.54601C7 3.75992 7 4.03995 7 4.6V5.4V7M17 7H7M8.6 21H15.4C15.9601 21 16.2401 21 16.454 20.891C16.6422 20.7951 16.7951 20.6422 16.891 20.454C17 20.2401 17 19.9601 17 19.4V16.6C17 16.0399 17 15.7599 16.891 15.546C16.7951 15.3578 16.6422 15.2049 16.454 15.109C16.2401 15 15.9601 15 15.4 15H8.6C8.03995 15 7.75992 15 7.54601 15.109C7.35785 15.2049 7.20487 15.3578 7.10899 15.546C7 15.7599 7 16.0399 7 16.6V19.4C7 19.9601 7 20.2401 7.10899 20.454C7.20487 20.6422 7.35785 20.7951 7.54601 20.891C7.75992 21 8.03995 21 8.6 21Z"/></svg>',
+    back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10L3.29289 10.7071L2.58579 10L3.29289 9.29289L4 10ZM21 18C21 18.5523 20.5523 19 20 19C19.4477 19 19 18.5523 19 18L21 18ZM8.29289 15.7071L3.29289 10.7071L4.70711 9.29289L9.70711 14.2929L8.29289 15.7071ZM3.29289 9.29289L8.29289 4.29289L9.70711 5.70711L4.70711 10.7071L3.29289 9.29289ZM4 9L14 9L14 11L4 11L4 9ZM21 16L21 18L19 18L19 16L21 16ZM14 9C17.866 9 21 12.134 21 16L19 16C19 13.2386 16.7614 11 14 11L14 9Z"/></svg>',
     whatsapp: '<img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPgo8c3ZnIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDMyIDMyIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPg0KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAzMUMyMy43MzIgMzEgMzAgMjQuNzMyIDMwIDE3QzMwIDkuMjY4MDEgMjMuNzMyIDMgMTYgM0M4LjI2ODAxIDMgMiA5LjI2ODAxIDIgMTdDMiAxOS41MTA5IDIuNjYxIDIxLjg2NzQgMy44MTg0NyAyMy45MDVMMiAzMUw5LjMxNDg2IDI5LjMwMzhDMTEuMzAxNCAzMC4zODU0IDEzLjU3ODkgMzEgMTYgMzFaTTE2IDI4Ljg0NjJDMjIuNTQyNSAyOC44NDYyIDI3Ljg0NjIgMjMuNTQyNSAyNy44NDYyIDE3QzI3Ljg0NjIgMTAuNDU3NiAyMi41NDI1IDUuMTUzODUgMTYgNS4xNTM4NUM5LjQ1NzU1IDUuMTUzODUgNC4xNTM4NSAxMC40NTc2IDQuMTUzODUgMTdDNC4xNTM4NSAxOS41MjYxIDQuOTQ0NSAyMS44Njc1IDYuMjkxODQgMjMuNzkwMkw1LjIzMDc3IDI3Ljc2OTJMOS4yNzk5MyAyNi43NTY5QzExLjE4OTQgMjguMDc0NiAxMy41MDQ2IDI4Ljg0NjIgMTYgMjguODQ2MloiIGZpbGw9IiNCRkM4RDAiLz4NCjxwYXRoIGQ9Ik0yOCAxNkMyOCAyMi42Mjc0IDIyLjYyNzQgMjggMTYgMjhDMTMuNDcyMiAyOCAxMS4xMjY5IDI3LjIxODQgOS4xOTI2NiAyNS44ODM3TDUuMDkwOTEgMjYuOTA5MUw2LjE2NTc2IDIyLjg3ODRDNC44MDA5MiAyMC45MzA3IDQgMTguNTU4OSA0IDE2QzQgOS4zNzI1OCA5LjM3MjU4IDQgMTYgNEMyMi42Mjc0IDQgMjggOS4zNzI1OCAyOCAxNloiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl84N183MjY0KSIvPg0KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAzMEMyMy43MzIgMzAgMzAgMjMuNzMyIDMwIDE2QzMwIDguMjY4MDEgMjMuNzMyIDIgMTYgMkM4LjI2ODAxIDIgMiA4LjI2ODAxIDIgMTZDMiAxOC41MTA5IDIuNjYxIDIwLjg2NzQgMy44MTg0NyAyMi45MDVMMiAzMEw5LjMxNDg2IDI4LjMwMzhDMTEuMzAxNCAyOS4zODU0IDEzLjU3ODkgMzAgMTYgMzBaTTE2IDI3Ljg0NjJDMjIuNTQyNSAyNy44NDYyIDI3Ljg0NjIgMjIuNTQyNSAyNy44NDYyIDE2QzI3Ljg0NjIgOS40NTc1NSAyMi41NDI1IDQuMTUzODUgMTYgNC4xNTM4NUM5LjQ1NzU1IDQuMTUzODUgNC4xNTM4NSA5LjQ1NzU1IDQuMTUzODUgMTZDNC4xNTM4NSAxOC41MjYxIDQuOTQ0NSAyMC44Njc1IDYuMjkxODQgMjIuNzkwMkw1LjIzMDc3IDI2Ljc2OTJMOS4yNzk5MyAyNS43NTY5QzExLjE4OTQgMjcuMDc0NiAxMy41MDQ2IDI3Ljg0NjIgMTYgMjcuODQ2MloiIGZpbGw9IndoaXRlIi8+DQo8cGF0aCBkPSJNMTIuNSA5LjQ5OTg5QzEyLjE2NzIgOC44MzEzMSAxMS42NTY1IDguODkwNSAxMS4xNDA3IDguODkwNUMxMC4yMTg4IDguODkwNSA4Ljc4MTI1IDkuOTk0NzggOC43ODEyNSAxMi4wNUM4Ljc4MTI1IDEzLjczNDMgOS41MjM0NSAxNS41NzggMTIuMDI0NCAxOC4zMzYxQzE0LjQzOCAyMC45OTc5IDE3LjYwOTQgMjIuMzc0OCAyMC4yNDIyIDIyLjMyNzlDMjIuODc1IDIyLjI4MTEgMjMuNDE2NyAyMC4wMTU0IDIzLjQxNjcgMTkuMjUwM0MyMy40MTY3IDE4LjkxMTIgMjMuMjA2MiAxOC43NDIgMjMuMDYxMyAxOC42OTZDMjIuMTY0MSAxOC4yNjU0IDIwLjUwOTMgMTcuNDYzMSAyMC4xMzI4IDE3LjMxMjRDMTkuNzU2MyAxNy4xNjE3IDE5LjU1OTcgMTcuMzY1NiAxOS40Mzc1IDE3LjQ3NjVDMTkuMDk2MSAxNy44MDE4IDE4LjQxOTMgMTguNzYwOCAxOC4xODc1IDE4Ljk3NjVDMTcuOTU1OCAxOS4xOTIyIDE3LjYxMDMgMTkuMDgzIDE3LjQ2NjUgMTkuMDAxNUMxNi45Mzc0IDE4Ljc4OTIgMTUuNTAyOSAxOC4xNTExIDE0LjM1OTUgMTcuMDQyNkMxMi45NDUzIDE1LjY3MTggMTIuODYyMyAxNS4yMDAxIDEyLjU5NTkgMTQuNzgwM0MxMi4zODI4IDE0LjQ0NDQgMTIuNTM5MiAxNC4yMzg0IDEyLjYxNzIgMTQuMTQ4M0MxMi45MjE5IDEzLjc5NjggMTMuMzQyNiAxMy4yNTQgMTMuNTMxMyAxMi45ODQzQzEzLjcxOTkgMTIuNzE0NSAxMy41NzAyIDEyLjMwNSAxMy40ODAzIDEyLjA1QzEzLjA5MzggMTAuOTUzIDEyLjc2NjMgMTAuMDM0NyAxMi41IDkuNDk5ODlaIiBmaWxsPSJ3aGl0ZSIvPg0KPGRlZnM+DQo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfODdfNzI2NCIgeDE9IjI2LjUiIHkxPSI3IiB4Mj0iNCIgeTI9IjI4IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+DQo8c3RvcCBzdG9wLWNvbG9yPSIjNUJEMDY2Ii8+DQo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyN0I0M0UiLz4NCjwvbGluZWFyR3JhZGllbnQ+DQo8L2RlZnM+DQo8L3N2Zz4=" alt="WhatsApp" style="width:25px;height:25px;display:block;">'
   };
 
@@ -930,12 +980,17 @@
         subtipo: p.subtipo,
         subtipoLabel: p.subtipoLabel,
         qtd: Number(p.qtd) || 0,
-        rowIndex: p.rowIndex
+        rowIndex: p.rowIndex,
+        loteId: p.loteId
       });
     });
     order.forEach(function(g){
       g.qtdTotal = g.itens.reduce(function(s,it){ return s + it.qtd; }, 0);
       g.valorTotal = g.itens.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+      // Se algum item ainda tem um Lote ID (ainda não entrou numa GTA
+      // impressa), o pedido fica esperando na aba GTA -- não deve
+      // aparecer no Histórico até isso acontecer.
+      g.temLotePendente = g.itens.some(function(it){ return !!it.loteId; });
     });
     return order;
   }
@@ -1453,6 +1508,7 @@
         state.estoque = (data && data.estoque) || state.estoque;
         state.encomendasExtras = (data && data.encomendasExtras) || state.encomendasExtras;
         state.historicoEncomendas = (data && data.historico) || state.historicoEncomendas;
+        state.ultimoLoteId = (data && data.loteId) || state.ultimoLoteId;
         toast("Encomenda confirmada! Estoque atualizado.");
         renderEncomendas();
         renderPedidos();
@@ -1516,6 +1572,493 @@
 
     document.getElementById("areaImpressao").innerHTML = html;
     setTimeout(function(){ window.print(); }, 200);
+  }
+
+  // ---------------------------------------------------------------
+  // ABA GTA — mostra os pedidos CONCLUÍDOS do lote confirmado na última
+  // encomenda, pede o código GTA, imprime e salva no histórico.
+  // ---------------------------------------------------------------
+  function renderGta(){
+    var root = document.getElementById("viewGta");
+    if(!root) return;
+
+    if(!state.ultimoLoteId){
+      root.innerHTML = '<div class="card">'+emptyState(ICON.box, "Nenhum lote confirmado ainda", "Confirme uma encomenda na aba Encomendas primeiro — é isso que gera o lote que essa aba usa.")+'</div>'
+        + '<div class="itens-label" style="margin-top:28px;">Histórico de relações de venda (GTA)</div>'
+        + '<div id="viewHistoricoRelacoes"></div>';
+      renderHistoricoRelacoes();
+      return;
+    }
+
+    root.innerHTML = '<div class="card"><div class="loading-row"><div class="spinner spinner-dark"></div>Carregando pedidos concluídos do lote...</div></div>';
+    api("getGtaLoteInfo", { loteId: state.ultimoLoteId }).then(function(info){
+      montarViewGta(info.itensConcluidos, { temAtivos: info.temAtivos, categoriasComSobra: info.categoriasComSobra });
+    }).catch(function(err){
+      root.innerHTML = '<div class="card">'+emptyState(ICON.box, "Não foi possível carregar", err.message)+'</div>';
+    });
+  }
+
+  function montarViewGta(itensLote, pendencias){
+    var root = document.getElementById("viewGta");
+    if(!root) return;
+
+    var porPedido = {};
+    var ordem = [];
+    itensLote.forEach(function(it){
+      if(!porPedido[it.pedidoId]){
+        porPedido[it.pedidoId] = { pedidoId: it.pedidoId, nome: it.nome, telefone: it.telefone, endereco: it.endereco, municipio: it.municipio, itens: [] };
+        ordem.push(porPedido[it.pedidoId]);
+      }
+      porPedido[it.pedidoId].itens.push({ categoria: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.qtd * precoDe(it.categoria) });
+    });
+    ordem.forEach(function(g){ g.valorTotal = g.itens.reduce(function(s,it){ return s + it.valorTotal; }, 0); });
+    ordem.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
+    var totalGeral = ordem.reduce(function(s,g){ return s + g.valorTotal; }, 0);
+
+    var html = '<div class="card" style="padding:20px;">';
+    html += '<div class="itens-label">Pedidos concluídos do lote atual</div>';
+
+    var temPendencia = pendencias && (pendencias.temAtivos || (pendencias.categoriasComSobra && pendencias.categoriasComSobra.length > 0));
+    if(temPendencia){
+      html += '<p class="help" style="background:var(--red-soft);color:var(--red);border-radius:var(--radius);padding:11px 14px;font-weight:600;margin:0 0 16px;">';
+      html += 'Ainda não dá pra imprimir a GTA desse lote:<br>';
+      if(pendencias.temAtivos) html += '• Tem pedido ainda em aberto (não encerrado) nesse lote.<br>';
+      if(pendencias.categoriasComSobra && pendencias.categoriasComSobra.length > 0){
+        html += '• Ainda sobra em estoque: ' + pendencias.categoriasComSobra.map(function(c){ return escapeHtml(c.categoria) + ' (' + c.sobrando + ')'; }).join(", ") + '.<br>';
+      }
+      html += 'Encerre os pedidos pendentes e venda o que sobrar (inclusive por Venda avulsa) antes de gerar a GTA.';
+      html += '</p>';
+    }
+
+    if(ordem.length === 0){
+      html += '<p class="help" style="margin:0;">Nenhum pedido concluído nesse lote ainda. Assim que você marcar pedidos como encerrados (na aba Pedidos), eles aparecem aqui pra entrar na relação.</p>';
+    } else {
+      html += '<div class="field"><label>Código GTA (GTAs de Origem)</label><input type="text" id="gtaCodigo" placeholder="Ex: 795500"'+(temPendencia?' disabled':'')+'></div>';
+
+      html += '<label class="itens-label">Compradores deste lote ('+ordem.length+' cliente'+(ordem.length===1?'':'s')+')</label>';
+      html += '<div class="gerenciar-tipos-lista" style="max-height:280px;overflow-y:auto;">';
+      ordem.forEach(function(g){
+        var itensTexto = g.itens.map(function(it){
+          var sub = it.subtipo ? " (" + it.subtipo + ")" : "";
+          return it.qtd + "x " + escapeHtml(it.categoria) + escapeHtml(sub);
+        }).join(", ");
+        html += '<div class="gerenciar-tipo-linha" style="align-items:flex-start;">';
+        html += '<div><div><b>'+escapeHtml(g.nome)+'</b> <span class="cell-sub">'+formatMoeda(g.valorTotal)+'</span></div><div class="cell-sub">'+itensTexto+'</div></div>';
+        html += '<button class="btn btn-icon btn-sm" data-act="reabrir-do-gta" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Voltar pra ativo" style="padding:5px;width:38px;height:38px;">'+ICON.back+'</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+      html += '<div class="pedido-total-row"><span>Total do lote</span><span class="pedido-total-valor">'+formatMoeda(totalGeral)+'</span></div>';
+      html += '<button class="btn btn-primary" id="btnImprimirGta" style="width:100%;justify-content:center;margin-top:12px;"'+(temPendencia?' disabled':'')+'>'+ICON.check+' Imprimir e salvar</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="itens-label" style="margin-top:28px;">Histórico de relações de venda (GTA)</div>';
+    html += '<div id="viewHistoricoRelacoes"></div>';
+
+    root.innerHTML = html;
+    renderHistoricoRelacoes();
+
+    root.querySelectorAll('[data-act="reabrir-do-gta"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var pedidoId = decodeURIComponent(btn.dataset.pid);
+        api("reabrirPedido", { pedidoId: pedidoId }).then(function(){
+          toast("Pedido voltou pra ativo.");
+          renderGta();
+          renderPedidos();
+        }).catch(function(err){ toast(err.message, "err"); });
+      });
+    });
+
+    var btnImprimir = document.getElementById("btnImprimirGta");
+    if(btnImprimir){
+      btnImprimir.addEventListener("click", function(){
+        var gta = document.getElementById("gtaCodigo").value.trim();
+        if(!gta){ toast("Informe o código GTA.", "err"); return; }
+        var extras = {
+          estabelecimento: "Agro Benevenuto",
+          municipio: "Ernestina",
+          responsavel: "Sandro Benevenuto"
+        };
+        btnImprimir.disabled = true; btnImprimir.innerHTML = '<div class="spinner"></div>';
+
+        var itensParaSalvar = [];
+        ordem.forEach(function(g){
+          g.itens.forEach(function(it){
+            itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.valorTotal });
+          });
+        });
+
+        api("registrarRelacaoVenda", { gta: gta, loteId: state.ultimoLoteId, itens: itensParaSalvar }).then(function(data){
+          state.relacoesVenda = data || state.relacoesVenda;
+          imprimirRelacaoVenda(gta, ordem, extras);
+          toast("Relação salva no histórico.");
+          renderGta();
+        }).catch(function(err){
+          toast(err.message, "err");
+          btnImprimir.disabled = false; btnImprimir.innerHTML = ICON.check + ' Imprimir e salvar';
+        });
+      });
+    }
+  }
+
+  var MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+  // Quantas linhas cabem numa folha A4 impressa antes de precisar ir pra
+  // próxima (com esse cabeçalho e rodapé). É uma estimativa -- se ao
+  // imprimir sobrar muito espaço em branco, ou se cortar antes da hora,
+  // é só ajustar esse número.
+  var LINHAS_POR_FOLHA = 22;
+
+  function imprimirRelacaoVenda(gta, grupos, extras){
+    var agora = new Date();
+    var dataFormatada = String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear();
+
+    var linhas = [];
+    grupos.forEach(function(g){
+      g.itens.forEach(function(it){
+        linhas.push({
+          data: dataFormatada, comprador: g.nome, telefone: g.telefone || "",
+          endereco: g.endereco || "", municipio: g.municipio || "",
+          especie: it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+        });
+      });
+    });
+
+    imprimirLinhasGta(linhas, gta, extras, dataFormatada, agora);
+  }
+
+  // Reimprime uma relação já salva no histórico, usando exatamente os
+  // dados guardados na hora (não busca nada novo do servidor).
+  function reimprimirRelacao(registro){
+    var linhas = (registro.itens || []).map(function(it){
+      return {
+        data: (registro.data || "").split(" ")[0],
+        comprador: it.nome, telefone: it.telefone || "", endereco: it.endereco || "", municipio: it.municipio || "",
+        especie: it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+      };
+    });
+    var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
+    var agora = new Date();
+    var dataImpressao = String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear();
+    imprimirLinhasGta(linhas, registro.gta, extras, dataImpressao, agora);
+  }
+
+  function imprimirLinhasGta(linhas, gta, extras, dataFormatada, agora){
+    var paginas = [];
+    for(var i=0; i<linhas.length; i += LINHAS_POR_FOLHA){
+      paginas.push(linhas.slice(i, i + LINHAS_POR_FOLHA));
+    }
+    if(paginas.length === 0) paginas.push([]); // sem nenhuma linha, ainda assim mostra 1 folha em branco
+
+    // Folha N° é sempre calculado a partir de quantas páginas essa
+    // impressão precisa (1, 2, 3...), nunca digitado.
+    var html = paginas.map(function(linhasDaPagina, idx){
+      var numeroFolha = String(idx + 1).padStart(2,"0");
+      return construirPaginaGta(linhasDaPagina, extras, gta, dataFormatada, agora, numeroFolha, idx < paginas.length - 1);
+    }).join("");
+
+    document.getElementById("areaImpressao").innerHTML = html;
+    setTimeout(function(){ window.print(); }, 200);
+  }
+
+  function construirPaginaGta(linhasDaPagina, extras, gta, dataFormatada, agora, numeroFolha, comQuebraDePagina){
+    var html = '<div class="gta-doc"'+(comQuebraDePagina?' style="page-break-after:always;"':'')+'>';
+    html += '<div class="gta-doc-cabecalho">';
+    html += '<div>ESTADO DO RIO GRANDE DO SUL</div>';
+    html += '<div>SECRETARIA DA AGRICULTURA, PECUÁRIA E DESENVOLVIMENTO RURAL</div>';
+    html += '<div>DEPARTAMENTO DE DEFESA AGROPECUÁRIA</div>';
+    html += '<h1>RELATÓRIO DE VENDA DE AVES VIVAS</h1>';
+    html += '</div>';
+
+    html += '<table class="gta-doc-info"><tbody>';
+    html += '<tr><td>Estabelecimento: <b>'+escapeHtml(extras.estabelecimento)+'</b></td><td>Folha N°: <b>'+escapeHtml(numeroFolha)+'</b></td></tr>';
+    html += '<tr><td>Município: <b>'+escapeHtml(extras.municipio)+'</b></td><td>GTAs de Origem: <b>'+escapeHtml(gta)+'</b></td></tr>';
+    html += '<tr><td colspan="2">Mês: <b>'+MESES_PT[agora.getMonth()]+'</b> &nbsp;&nbsp; Ano: <b>'+agora.getFullYear()+'</b></td></tr>';
+    html += '</tbody></table>';
+
+    html += '<table class="gta-doc-tabela"><thead><tr><th>Data</th><th>Comprador</th><th>Telefone</th><th>Endereço</th><th>Município</th><th>Espécie</th><th>Qtd</th><th>Finalidade</th></tr></thead><tbody>';
+    linhasDaPagina.forEach(function(l){
+      html += '<tr>';
+      html += '<td>'+escapeHtml(l.data)+'</td>';
+      html += '<td>'+escapeHtml(l.comprador)+'</td>';
+      html += '<td>'+escapeHtml(l.telefone)+'</td>';
+      html += '<td>'+escapeHtml(l.endereco)+'</td>';
+      html += '<td>'+escapeHtml(l.municipio)+'</td>';
+      html += '<td>'+escapeHtml(l.especie)+'</td>';
+      html += '<td>'+l.qtd+'</td>';
+      html += '<td>'+escapeHtml(l.finalidade)+'</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    html += '<p class="gta-doc-legal">Apresentar na Inspetoria de Defesa Agropecuária mensalmente e manter arquivado na agropecuária, com a rúbrica de um funcionário da SEAPDR, junto com as GTAs, por um período de 02 anos.</p>';
+
+    html += '<table class="gta-doc-rodape"><tr>';
+    html += '<td>Responsável pelas informações: <b>'+escapeHtml(extras.responsavel||"")+'</b><br><br>Assinatura: ______________________________<br><br>Data: '+dataFormatada+'</td>';
+    html += '<td>Recebido em: ____/____/____<br><br><br><div style="border-top:1px solid #000;padding-top:4px;text-align:center;">Carimbo e Assinatura</div></td>';
+    html += '</tr></table>';
+    html += '</div>';
+    return html;
+  }
+
+  // ---------------------------------------------------------------
+  // VENDA AVULSA — venda extra, feita na hora, sem pedido prévio.
+  // Já entra direto como Encerrada, marcada com o lote atual, e
+  // desconta do Estoque.
+  // ---------------------------------------------------------------
+  function abrirVendaAvulsaModal(){
+    var disponiveis = CATEGORIAS.map(function(c){
+      var sobrando = (Number(state.estoque[c.nome])||0) - qtdPedidaAtiva(c.nome);
+      return { nome: c.nome, sobrando: sobrando };
+    }).filter(function(c){ return c.sobrando > 0; });
+
+    if(disponiveis.length === 0){
+      toast("Nenhuma ave sobrando em estoque pra vender agora.", "err");
+      return;
+    }
+
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal">';
+    html += '<div class="modal-head"><h2>Venda avulsa</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p class="help" style="margin:0 0 14px;">Pra vender aves extras na hora, sem precisar criar um pedido — já entra concluída e desconta do estoque.</p>';
+
+    html += '<div class="field autocomplete">';
+    html += '<label>Cliente</label>';
+    html += '<input type="text" id="vaCliente" placeholder="Nome do cliente" autocomplete="off">';
+    html += '<div id="vaAutocomplete"></div>';
+    html += '</div>';
+    html += '<div class="field-row">';
+    html += '<div class="field"><label>Telefone</label><input type="tel" id="vaTelefone" placeholder="(54) 99999-9999"></div>';
+    html += '<div class="field"><label>Município</label><input type="text" id="vaMunicipio" placeholder="Município"></div>';
+    html += '</div>';
+    html += '<div class="field"><label>Endereço</label><input type="text" id="vaEndereco" placeholder="Endereço completo"></div>';
+
+    html += '<label class="itens-label">Aves disponíveis pra vender (com sobra em estoque)</label>';
+    html += '<div class="gerenciar-tipos-lista">';
+    disponiveis.forEach(function(c){
+      html += '<div class="gerenciar-tipo-linha">';
+      html += '<div>'+escapeHtml(c.nome)+' <span class="cell-sub">(sobram '+c.sobrando+')</span></div>';
+      html += '<input type="text" inputmode="numeric" class="vaQtdInput" data-cat="'+encodeURIComponent(c.nome)+'" data-sobrando="'+c.sobrando+'" placeholder="Qtd" style="width:70px;">';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    html += '<div class="pedido-total-row"><span>Total da venda</span><span id="vaTotalValor" class="pedido-total-valor">R$ 0,00</span></div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">'+ICON.check+' Registrar venda</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    function recalcularTotalAvulso(){
+      var total = 0;
+      document.querySelectorAll(".vaQtdInput").forEach(function(inp){
+        var qtd = Number(inp.value) || 0;
+        var cat = decodeURIComponent(inp.dataset.cat);
+        total += qtd * precoDe(cat);
+      });
+      document.getElementById("vaTotalValor").textContent = formatMoeda(total);
+    }
+
+    document.querySelectorAll(".vaQtdInput").forEach(function(inp){
+      inp.addEventListener("input", recalcularTotalAvulso);
+    });
+
+    var vaCliente = document.getElementById("vaCliente");
+    vaCliente.addEventListener("input", function(){
+      var q = vaCliente.value.trim().toLowerCase();
+      var box = document.getElementById("vaAutocomplete");
+      if(q.length < 2){ box.innerHTML = ""; return; }
+      var matches = state.clientes.filter(function(c){ return c.nome.toLowerCase().indexOf(q) !== -1; }).slice(0, 6);
+      if(matches.length === 0){ box.innerHTML = ""; return; }
+      box.innerHTML = '<div class="autocomplete-list">' + matches.map(function(c){
+        return '<div class="autocomplete-item" data-nome="'+escapeHtml(c.nome)+'"><div class="n">'+escapeHtml(c.nome)+'</div><div class="m">'+escapeHtml(c.municipio||"")+' · '+escapeHtml(c.telefone||"")+'</div></div>';
+      }).join("") + '</div>';
+      box.querySelectorAll(".autocomplete-item").forEach(function(item, idx){
+        item.addEventListener("click", function(){
+          var c = matches[idx];
+          vaCliente.value = c.nome;
+          document.getElementById("vaTelefone").value = c.telefone || "";
+          document.getElementById("vaEndereco").value = c.endereco || "";
+          document.getElementById("vaMunicipio").value = c.municipio || "";
+          box.innerHTML = "";
+        });
+      });
+    });
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+
+    document.getElementById("mSave").addEventListener("click", function(){
+      var cliente = vaCliente.value.trim();
+      if(!cliente){ toast("Informe o nome do cliente.", "err"); return; }
+
+      var itensValidos = [];
+      var estourou = null;
+      document.querySelectorAll(".vaQtdInput").forEach(function(inp){
+        var qtd = Number(inp.value) || 0;
+        if(qtd > 0){
+          var cat = decodeURIComponent(inp.dataset.cat);
+          var sobrando = Number(inp.dataset.sobrando) || 0;
+          if(qtd > sobrando) estourou = cat;
+          itensValidos.push({ categoria: cat, subtipo: "", qtd: qtd });
+        }
+      });
+      if(itensValidos.length === 0){ toast("Informe uma quantidade em pelo menos um tipo de ave.", "err"); return; }
+      if(estourou){ toast('A quantidade de "'+estourou+'" é maior do que o que está sobrando.', "err"); return; }
+
+      var payload = {
+        nome: cliente,
+        telefone: document.getElementById("vaTelefone").value.trim(),
+        endereco: document.getElementById("vaEndereco").value.trim(),
+        municipio: document.getElementById("vaMunicipio").value.trim(),
+        observacoes: "Venda avulsa",
+        loteId: state.ultimoLoteId || "",
+        itens: itensValidos
+      };
+
+      var clienteExiste = state.clientes.some(function(cl){ return cl.nome.trim().toLowerCase() === cliente.toLowerCase(); });
+      if(!clienteExiste){
+        confirmModal(
+          "Cliente não encontrado",
+          "\""+escapeHtml(cliente)+"\" ainda não está cadastrado em Clientes. Deseja cadastrar esse cliente agora?",
+          "Sim, cadastrar",
+          function(){
+            openClienteModal(
+              { nome: payload.nome, telefone: payload.telefone, endereco: payload.endereco, municipio: payload.municipio },
+              null,
+              true
+            );
+          },
+          false, null, true
+        );
+        return;
+      }
+
+      salvarVendaAvulsa(payload);
+    });
+  }
+
+  function salvarVendaAvulsa(payload){
+    var btn = document.getElementById("mSave");
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+    api("venderAvulso", payload).then(function(){
+      toast("Venda avulsa registrada!");
+      closeModal();
+      loadPedidos();
+      loadEstoque();
+    }).catch(function(err){
+      toast(err.message, "err");
+      btn.disabled = false; btn.innerHTML = ICON.check + ' Registrar venda';
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // HISTÓRICO DE RELAÇÕES DE VENDA (GTA) — filtrável
+  // ---------------------------------------------------------------
+  function filteredRelacoesVenda(){
+    var de = state.histRelacaoDataDe ? new Date(state.histRelacaoDataDe + "T00:00:00") : null;
+    var ate = state.histRelacaoDataAte ? new Date(state.histRelacaoDataAte + "T23:59:59") : null;
+    return (state.relacoesVenda || []).filter(function(r){
+      if(state.histRelacaoGta){
+        var q = state.histRelacaoGta.toLowerCase();
+        if(!String(r.gta||"").toLowerCase().startsWith(q)) return false;
+      }
+      if(de || ate){
+        var d = parseDataCriacao(r.data);
+        if(!d) return false;
+        if(de && d < de) return false;
+        if(ate && d > ate) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderHistoricoRelacoes(){
+    var root = document.getElementById("viewHistoricoRelacoes");
+    if(!root) return;
+
+    var countRV = document.getElementById("countRelacoesVenda");
+    if(countRV) countRV.textContent = (state.relacoesVenda||[]).length;
+
+    var html = '';
+    html += '<div class="toolbar">';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="hrGta" placeholder="Buscar por código GTA" value="'+escapeHtml(state.histRelacaoGta)+'"></div>';
+    html += '  <div class="spacer"></div>';
+    html += '  <div class="date-range-group">';
+    html += '  <label class="date-filter-label">De<input type="date" id="hrDataDe" value="'+escapeHtml(state.histRelacaoDataDe)+'"></label>';
+    html += '  <label class="date-filter-label">Até<input type="date" id="hrDataAte" value="'+escapeHtml(state.histRelacaoDataAte)+'"></label>';
+    html += '  </div>';
+    if(state.histRelacaoGta || state.histRelacaoDataDe || state.histRelacaoDataAte){
+      html += '  <button class="btn btn-sm" id="btnLimparHistRelacao">Limpar filtros</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="card">';
+    if(state.loadingRelacoesVenda){
+      html += '<div class="loading-row"><div class="spinner spinner-dark"></div>Carregando...</div>';
+    } else {
+      var list = filteredRelacoesVenda();
+      if(list.length === 0){
+        html += emptyState(ICON.box, "Nenhuma relação de venda encontrada", (state.relacoesVenda||[]).length===0 ? "As relações impressas vão aparecer aqui." : "Ajuste os filtros para ver outras relações.");
+      } else {
+        var somaValor = list.reduce(function(s,r){ return s + r.valorTotal; }, 0);
+        html += '<div class="historico-total-row"><span>Valor total das relações filtradas</span><span class="historico-total-valor">'+formatMoeda(somaValor)+'</span></div>';
+        list.forEach(function(r){
+          var clientesUnicos = Array.from(new Set(r.itens.map(function(it){ return it.nome; })));
+          var expandido = !!state.relacoesExpandidas[r.rowIndex];
+          var dataSoData = (r.data||"").split(" ")[0];
+          html += '<div class="historico-encomenda-item">';
+          html += '<button type="button" class="historico-relacao-cabecalho" data-relacao-toggle="'+r.rowIndex+'">';
+          html += '<span class="historico-relacao-gta">GTA: '+escapeHtml(r.gta)+'</span>';
+          html += '<div style="display:flex;align-items:center;gap:12px;">';
+          html += '<span class="historico-relacao-data-resumo">'+escapeHtml(dataSoData)+'</span>';
+          html += '<span class="estoque-chevron'+(expandido?' expandido':'')+'">'+ICON.chevron+'</span>';
+          html += '</div>';
+          html += '</button>';
+          if(expandido){
+            html += '<div class="historico-relacao-detalhes">';
+            html += '<div class="cell-sub" style="margin-bottom:6px;">Emitida em '+escapeHtml(r.data)+'</div>';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+            html += '<span class="cell-sub">'+clientesUnicos.length+' cliente(s) — <b>'+formatMoeda(r.valorTotal)+'</b></span>';
+            html += '<button class="btn btn-icon btn-sm" data-act="reimprimir-relacao" data-row="'+r.rowIndex+'" title="Reimprimir" style="padding:5px;width:38px;height:38px;">'+ICON.printer+'</button>';
+            html += '</div>';
+            html += r.itens.map(function(it){
+              var sub = it.subtipo ? " ("+it.subtipo+")" : "";
+              return '<div class="tipo-linha tipo-linha-gta"><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+escapeHtml(sub)+'</span> <span class="cell-sub">'+escapeHtml(it.nome)+'</span></div>';
+            }).join("");
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+      }
+    }
+    html += '</div>';
+    root.innerHTML = html;
+
+    document.getElementById("hrGta").addEventListener("input", function(e){ state.histRelacaoGta = e.target.value; renderHistoricoRelacoes(); preserveFocus(document.getElementById("hrGta")); });
+    document.getElementById("hrDataDe").addEventListener("change", function(e){ state.histRelacaoDataDe = e.target.value; renderHistoricoRelacoes(); });
+    document.getElementById("hrDataAte").addEventListener("change", function(e){ state.histRelacaoDataAte = e.target.value; renderHistoricoRelacoes(); });
+    var btnLimparHR = document.getElementById("btnLimparHistRelacao");
+    if(btnLimparHR){
+      btnLimparHR.addEventListener("click", function(){
+        state.histRelacaoGta = ""; state.histRelacaoDataDe = ""; state.histRelacaoDataAte = "";
+        renderHistoricoRelacoes();
+      });
+    }
+    root.querySelectorAll('[data-act="reimprimir-relacao"]').forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var registro = (state.relacoesVenda||[]).filter(function(r){ return String(r.rowIndex) === btn.dataset.row; })[0];
+        if(registro) reimprimirRelacao(registro);
+      });
+    });
+    root.querySelectorAll('[data-relacao-toggle]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var rowIndex = btn.dataset.relacaoToggle;
+        state.relacoesExpandidas[rowIndex] = !state.relacoesExpandidas[rowIndex];
+        renderHistoricoRelacoes();
+      });
+    });
   }
 
   // ---------------------------------------------------------------
@@ -1588,10 +2131,30 @@
     root.querySelectorAll('[data-act="encerrar"]').forEach(function(btn){
       btn.addEventListener("click", function(){
         var g = findPedidoGroup(decodeURIComponent(btn.dataset.pid));
+        if(!g) return;
+
+        // Confere se tem ave suficiente em estoque antes de nem oferecer
+        // a opção de encerrar.
+        var necessarioPorCategoria = {};
+        g.itens.forEach(function(it){
+          necessarioPorCategoria[it.categoria] = (necessarioPorCategoria[it.categoria]||0) + it.qtd;
+        });
+        var faltando = Object.keys(necessarioPorCategoria).filter(function(categoria){
+          var disponivel = Number(state.estoque[categoria]) || 0;
+          return necessarioPorCategoria[categoria] > disponivel;
+        });
+        if(faltando.length > 0){
+          toast('Não tem ave suficiente em estoque pra encerrar: ' + faltando.map(function(c){
+            return c + ' (precisa ' + necessarioPorCategoria[c] + ', tem ' + (Number(state.estoque[c])||0) + ' sobrando)';
+          }).join('; ') + '.', "err");
+          return;
+        }
+
         confirmModal("Encerrar pedido", "Encerrar o pedido de " + (g?g.nome:"") + "? Ele continua no histórico, marcado como encerrado.", "Encerrar", function(){
           api("encerrarPedido", { pedidoId: g.pedidoId }).then(function(){
             toast("Pedido encerrado.");
             loadPedidos();
+            loadEstoque();
           }).catch(function(err){ toast(err.message, "err"); });
         });
       });
@@ -1602,6 +2165,7 @@
         api("reabrirPedido", { pedidoId: g.pedidoId }).then(function(){
           toast("Pedido reaberto.");
           loadPedidos();
+          loadEstoque();
         }).catch(function(err){ toast(err.message, "err"); });
       });
     });
@@ -1637,6 +2201,7 @@
     html += '  <div class="search-box">'+ICON.search+'<input type="text" id="fBusca" placeholder="Buscar por nome ou município" value="'+escapeHtml(state.buscaPedidos)+'"></div>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovoPedido">'+ICON.plus+' Novo pedido</button>';
+    html += '  <button class="btn" id="btnVendaAvulsa">'+ICON.plus+' Venda avulsa</button>';
     html += '</div>';
 
     html += '<div class="card">';
@@ -1659,6 +2224,7 @@
     var fBusca = document.getElementById("fBusca");
     fBusca.addEventListener("input", function(e){ state.buscaPedidos = e.target.value; renderPedidos(); preserveFocus(fBusca); });
     document.getElementById("btnNovoPedido").addEventListener("click", function(){ openPedidoModal(null); });
+    document.getElementById("btnVendaAvulsa").addEventListener("click", function(){ abrirVendaAvulsaModal(); });
 
     wireEstoqueActions(root);
     wirePedidoRowActions(root);
@@ -1671,6 +2237,9 @@
     var de = state.histDataDe ? new Date(state.histDataDe + "T00:00:00") : null;
     var ate = state.histDataAte ? new Date(state.histDataAte + "T23:59:59") : null;
     return groupPedidos().filter(function(g){
+      // Encerrados que ainda esperam por uma GTA ficam só na aba GTA,
+      // não aparecem aqui até a relação ser impressa.
+      if(g.status === "Encerrado" && g.temLotePendente) return false;
       if(state.histCategoria !== "Todos" && !g.itens.some(function(it){ return it.categoria === state.histCategoria; })) return false;
       if(state.histStatus !== "Todos" && g.status !== state.histStatus) return false;
       if(state.histBusca){
@@ -1733,7 +2302,7 @@
     html += '</div>';
     root.innerHTML = html;
 
-    document.getElementById("countHistorico").textContent = groupPedidos().filter(function(g){return g.status==="Encerrado";}).length;
+    document.getElementById("countHistorico").textContent = groupPedidos().filter(function(g){return g.status==="Encerrado" && !g.temLotePendente;}).length;
 
     document.getElementById("hCategoria").addEventListener("change", function(e){ state.histCategoria = e.target.value; renderHistorico(); });
     document.getElementById("hStatus").addEventListener("change", function(e){ state.histStatus = e.target.value; renderHistorico(); });
@@ -3217,14 +3786,37 @@
     var btn = document.getElementById("mSave");
     btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
 
+    if(!editing) payload.pedidoId = payload.pedidoId || (Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+    // Atualiza a tela na hora, sem esperar a planilha responder. A
+    // planilha continua sendo gravada por trás; se falhar, desfaz.
+    var existente = editing ? state.pedidos.filter(function(p){ return p.pedidoId === payload.pedidoId; })[0] : null;
+    var dataCriacaoTexto = existente ? existente.dataCriacao : (function(){
+      var agora = new Date();
+      return String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear() + " " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
+    })();
+    var statusTexto = existente ? existente.status : "Ativo";
+    state.pedidos = state.pedidos.filter(function(p){ return p.pedidoId !== payload.pedidoId; });
+    payload.itens.forEach(function(it){
+      var categoriaInfo = CATEGORIAS.filter(function(c){ return c.nome === it.categoria; })[0];
+      state.pedidos.push({
+        rowIndex: 0,
+        categoria: it.categoria,
+        subtipoLabel: categoriaInfo ? categoriaInfo.subtipoLabel : null,
+        nome: payload.nome, telefone: payload.telefone, endereco: payload.endereco, municipio: payload.municipio,
+        subtipo: it.subtipo || "", qtd: it.qtd, observacoes: payload.observacoes,
+        status: statusTexto, dataCriacao: dataCriacaoTexto, pedidoId: payload.pedidoId
+      });
+    });
+    renderPedidos();
+    renderHistorico();
+    toast(editing ? "Pedido atualizado." : "Pedido criado.");
+    closeModal();
+
     var call = editing ? api("updatePedido", payload) : api("addPedido", payload);
-    call.then(function(){
-      toast(editing ? "Pedido atualizado." : "Pedido criado.");
-      closeModal();
+    call.catch(function(err){
+      toast("Não foi possível salvar: " + err.message, "err");
       loadPedidos();
-    }).catch(function(err){
-      toast(err.message, "err");
-      btn.disabled = false; btn.textContent = editing ? "Salvar alterações" : "Criar pedido";
     });
   }
 
@@ -3658,11 +4250,44 @@
       + '</div>';
   }
 
+  // ---------------------------------------------------------------
+  // MODAL: ORDEM (passo a passo do ciclo de vendas de aves)
+  // ---------------------------------------------------------------
+  function ordemPasso(numero, titulo, texto, destaque){
+    var html = '<div style="display:flex;gap:14px;padding:14px 0;'+(numero<7?'border-bottom:1px solid var(--line);':'')+'">';
+    html += '<div style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:'+(destaque?'var(--red)':'var(--green-dark)')+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">'+numero+'</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-weight:700;font-size:14.5px;color:var(--ink);margin-bottom:3px;">'+titulo+(destaque?' <span style="color:var(--red);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">· Essencial</span>':'')+'</div>';
+    html += '<div style="font-size:13.5px;color:var(--ink-soft);line-height:1.55;">'+texto+'</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function openOrdemModal(){
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>Ordem correta pra fazer um lote de vendas</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p class="help" style="margin:0 0 6px;">Siga essa ordem pra nenhuma etapa importante ficar pra trás — os passos marcados em vermelho são os que mais causam problema se forem pulados.</p>';
+
+    html += ordemPasso(1, "Cadastrar os pedidos dos clientes", 'Conforme os clientes vão pedindo, cadastre cada pedido em <b>Aves → Pedidos</b> (fica como Ativo). Um pedido pode ter vários tipos de ave.', false);
+    html += ordemPasso(2, "Confirmar a encomenda pro fornecedor", 'Em <b>Aves → Encomendas</b>, revise os totais, marque os tipos que o fornecedor vai entregar e clique em <b>Confirmar encomenda</b>. É esse clique que gera o lote e atualiza o Estoque — sem isso, nada mais funciona nos próximos passos.', true);
+    html += ordemPasso(3, "Conferir o que chegou", 'Quando a encomenda chegar, preencha o campo <b>Recebido</b> de cada tipo (ainda em Encomendas) pra conferir se bateu com o pedido.', false);
+    html += ordemPasso(4, "Encerrar cada pedido ao entregar", 'Conforme for entregando as aves, volte em <b>Aves → Pedidos</b> e clique em <b>Encerrar</b> em cada um. Isso desconta do estoque na hora — o app não deixa encerrar sem ave suficiente sobrando. Pedidos esquecidos como "Ativo" travam a impressão da GTA depois.', true);
+    html += ordemPasso(5, "Vender o que sobrar (se sobrar)", 'Se sobrar ave além dos pedidos já feitos, use <b>Venda avulsa</b> (também em Pedidos) — já desconta do estoque e entra no mesmo lote, sem precisar criar um pedido.', false);
+    html += ordemPasso(6, "Imprimir a GTA só quando tudo estiver resolvido", 'Vá em <b>Aves → GTA</b>. Se ainda tiver pedido em aberto ou ave sobrando, o app avisa e bloqueia a impressão — resolva isso antes. Digite o código da GTA e clique em <b>Imprimir e salvar</b>.', true);
+    html += ordemPasso(7, "Conferir no Histórico", 'Depois de imprimir, os pedidos daquele lote passam a aparecer normalmente em <b>Aves → Histórico</b>, já documentados.', false);
+
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+  }
+
   function openHelpModal(){
     var titulos = {
       "aves-pedidos": "Ajuda — Aves · Pedidos",
       "aves-historico": "Ajuda — Aves · Histórico",
       "aves-encomendas": "Ajuda — Aves · Encomendas",
+      "aves-gta": "Ajuda — Aves · GTA",
       "plantas-pedidos": "Ajuda — Plantas · Pedidos",
       "plantas-historico": "Ajuda — Plantas · Histórico",
       "plantas-cadastro": "Ajuda — Plantas · Cadastro",
@@ -3697,21 +4322,37 @@
         + '<li>Isso fica registrado no histórico também — o botão "Ver histórico" mostra a conferência das encomendas anteriores.</li>'
         + '</ul>');
 
+    } else if(chave === "aves-gta"){
+      html += helpSection(ICON.check, "Imprimir a relação de venda (GTA)", '<p>A lista "Pedidos concluídos do lote atual" mostra quem já comprou e teve o pedido <b>encerrado</b> desde a última encomenda confirmada. Conforme você vai encerrando pedidos na aba Pedidos (ou registrando vendas avulsas), eles vão aparecendo aqui.</p><ul>'
+        + '<li>Se ainda tiver pedido em aberto, ou sobrar estoque pra vender, aparece um aviso e a impressão fica bloqueada até resolver.</li>'
+        + '<li>O botão de seta ao lado de um comprador devolve o pedido dele pra <b>ativo</b> (caso tenha marcado como encerrado por engano) — some daqui e volta a aparecer na aba Pedidos.</li>'
+        + '<li>Digite o <b>código GTA</b> (a Guia de Trânsito Animal) e clique em <b>Imprimir e salvar</b>. Sai no formato oficial (Estado do RS / Relatório de Venda de Aves Vivas) — se tiver muitas vendas, divide sozinho em mais folhas, numeradas automaticamente.</li>'
+        + '<li>Depois de imprimir, a lista fica pronta pra próxima venda, e os pedidos impressos passam a aparecer no Histórico.</li>'
+        + '</ul>');
+      html += helpSection(ICON.historico, "Histórico de relações de venda", '<p>Mais abaixo fica tudo que já foi impresso, com filtro por <b>código GTA</b> e por <b>período</b>, e o valor total somado do que estiver filtrado.</p><ul>'
+        + '<li>Clique numa linha (código + data) pra ver os clientes/itens daquela relação.</li>'
+        + '<li>Tem um botão pra <b>reimprimir</b> — útil se perder a folha ou precisar de uma segunda via.</li>'
+        + '</ul>');
+      html += helpSection(ICON.plus, "Venda avulsa", '<p>Na aba Pedidos, o botão <b>"Venda avulsa"</b> vende aves extras na hora, sem precisar criar um pedido primeiro.</p><ul>'
+        + '<li>Só mostra os tipos de ave que têm sobra em estoque.</li>'
+        + '<li>Já entra concluída e desconta do estoque na hora — pronta pra entrar na próxima relação GTA.</li>'
+        + '</ul>');
+
     } else if(chave === "aves-historico"){
       html += helpSection(ICON.filter, "O que essa aba mostra", '<p>Por padrão mostra os pedidos <b>encerrados</b>. Use o filtro de status para ver ativos ou todos juntos. Pode filtrar por:</p><ul>'
         + '<li><b>Palavra-chave</b>: busca por nome do cliente, município ou observações.</li>'
         + '<li><b>Tipo de ave</b> e <b>status</b> (ativos, encerrados ou todos).</li>'
         + '<li><b>Período</b>: escolha uma data "De" e/ou "Até" para ver só os pedidos lançados naquele intervalo.</li>'
-        + '</ul>');
+        + '</ul><p class="cell-sub" style="margin:8px 0 0;">Um pedido encerrado que ainda está esperando por uma GTA fica só na aba <b>GTA</b> — só aparece aqui depois de entrar numa relação impressa.</p>');
       html += helpSection(ICON.money, "Valor total", '<p>Acima da lista aparece o <b>valor total somado</b> dos pedidos que estão sendo mostrados no momento — ele muda automaticamente conforme você ajusta qualquer filtro.</p>');
       html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
-        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído.</li>'
-        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo — ele passa a aparecer de novo na aba Pedidos.</li>'
+        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e desconta o estoque.</li>'
+        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo — ele passa a aparecer de novo na aba Pedidos, e devolve a quantidade pro estoque.</li>'
         + '<li>'+ICON.trash+' <b>Remover</b> apaga a linha da planilha de vez — não tem como desfazer.</li>'
         + '</ul>');
 
     } else if(chave === "aves-pedidos"){
-      html += helpSection(ICON.box, "Criar e editar pedidos", '<p>Mostra só os pedidos <b>ativos</b> — os já encerrados ficam na aba Histórico.</p><ul>'
+      html += helpSection(ICON.box, "Criar e editar pedidos", '<p>Mostra os pedidos <b>ativos</b> — os encerrados ficam na aba GTA (esperando entrar numa relação) e depois no Histórico.</p><ul>'
         + '<li>Use <b>+ Novo pedido</b> para lançar um pedido. Comece digitando o nome do cliente — se ele já estiver cadastrado, aparece uma lista para clicar e preencher telefone/endereço/município automaticamente.</li>'
         + '<li>Um mesmo pedido pode ter <b>vários tipos de ave</b> — use "Adicionar outro tipo de ave" para incluir mais itens. O valor de cada item é calculado sozinho (quantidade x preço por ave), e o total do pedido soma tudo.</li>'
         + '<li>Cada tipo de ave aparece com uma <b>cor diferente</b> na etiqueta. O nome abreviado da etiqueta mostra o nome completo se passar o mouse por cima.</li>'
@@ -3719,16 +4360,17 @@
         + '<li>O lápis '+ICON.edit+' edita o pedido; a lixeira '+ICON.trash+' remove de vez.</li>'
         + '<li>O ícone verde de balão '+ICON.whatsapp+' abre o WhatsApp com uma mensagem já pronta avisando que o pedido está pronto para retirada. Só aparece quando o cliente tem telefone cadastrado.</li>'
         + '</ul>');
+      html += helpSection(ICON.plus, "Venda avulsa", '<p>O botão <b>"Venda avulsa"</b>, no topo da aba, vende aves extras na hora, sem precisar criar um pedido primeiro — só mostra os tipos que têm sobra em estoque, e já entra concluída, descontando na hora.</p>');
       html += helpSection(ICON.stock, "Estoque disponível", '<p>No topo da aba fica um painel mostrando quantas aves ainda estão sobrando. Clique em qualquer parte do cabeçalho para abrir ou fechar os detalhes.</p><ul>'
         + '<li>O número grande no topo mostra o total sobrando somando todos os tipos de ave.</li>'
         + '<li>A tabela logo abaixo mostra, para cada tipo de ave: quanto foi <b>encomendado</b>, quanto já está em <b>pedidos ativos</b>, e quanto <b>sobra</b>.</li>'
         + '<li>Clique no lápis '+ICON.edit+' de uma linha para informar quantas aves daquele tipo foram encomendadas. O sistema desconta os pedidos ativos automaticamente.</li>'
         + '<li>Na mesma linha, o ícone de cifrão define o <b>preço por ave</b> daquele tipo.</li>'
-        + '<li>O ícone de engrenagem, no canto do painel, abre <b>"Gerenciar tipos de ave"</b> — dá pra renomear um tipo já existente (renomeia a aba correspondente na planilha, sem perder histórico) ou cadastrar um tipo novo do zero.</li>'
+        + '<li>O ícone de engrenagem, no canto do painel, abre <b>"Gerenciar tipos de ave"</b> — dá pra renomear um tipo já existente (atualiza todos os pedidos já lançados com ele, sem perder histórico) ou cadastrar um tipo novo do zero.</li>'
         + '</ul>');
       html += helpSection(ICON.check, "Encerrar x Reabrir x Remover", '<ul>'
-        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e ele sai da aba Pedidos, indo para o Histórico.</li>'
-        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo.</li>'
+        + '<li>'+ICON.check+' <b>Encerrar</b> marca o pedido como concluído e desconta as aves do estoque — o app não deixa encerrar se não tiver quantidade suficiente sobrando.</li>'
+        + '<li>'+ICON.undo+' <b>Reabrir</b> volta um pedido encerrado para ativo, e devolve a quantidade pro estoque.</li>'
         + '<li>'+ICON.trash+' <b>Remover</b> apaga a linha da planilha de vez — não tem como desfazer.</li>'
         + '</ul>');
 
@@ -3853,10 +4495,11 @@
       document.getElementById("secaoPlantas").style.display = state.viewGeral === "plantas" ? "" : "none";
       document.getElementById("secaoMaquinas").style.display = state.viewGeral === "maquinas" ? "" : "none";
       document.getElementById("viewClientes").style.display = state.viewGeral === "clientes" ? "" : "none";
+      document.getElementById("btnOrdem").style.display = state.viewGeral === "aves" ? "" : "none";
     });
   });
 
-  // Sub-abas dentro de Aves: Pedidos / Histórico / Encomendas
+  // Sub-abas dentro de Aves: Pedidos / Histórico / Encomendas / GTA
   document.querySelectorAll(".tab-aves").forEach(function(tab){
     tab.addEventListener("click", function(){
       document.querySelectorAll(".tab-aves").forEach(function(t){ t.classList.remove("active"); });
@@ -3865,7 +4508,9 @@
       document.getElementById("viewPedidos").style.display = state.view === "pedidos" ? "" : "none";
       document.getElementById("viewHistorico").style.display = state.view === "historico" ? "" : "none";
       document.getElementById("viewEncomendas").style.display = state.view === "encomendas" ? "" : "none";
+      document.getElementById("viewGta").style.display = state.view === "gta" ? "" : "none";
       if(state.view === "encomendas") renderEncomendas();
+      if(state.view === "gta") renderGta();
     });
   });
 
@@ -3974,6 +4619,8 @@
   // fica escrita neste arquivo)
   // ---------------------------------------------------------------
   document.getElementById("btnHelp").addEventListener("click", openHelpModal);
+  document.getElementById("btnOrdem").addEventListener("click", openOrdemModal);
+  document.getElementById("btnOrdem").style.display = state.viewGeral === "aves" ? "" : "none";
   document.getElementById("btnSettings").addEventListener("click", openSettingsModal);
   document.getElementById("btnRefresh").addEventListener("click", function(){ loadAll(); });
   document.getElementById("btnForcarUpdate").addEventListener("click", function(){ checarAtualizacaoPeriodica(true); });
