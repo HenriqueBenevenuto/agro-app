@@ -1591,19 +1591,25 @@
     var root = document.getElementById("viewGta");
     if(!root) return;
 
+    var toolbar = '<div class="toolbar"><div class="spacer"></div><button class="btn" id="btnGtaManual">'+ICON.plus+' Gerar GTA manual</button></div>';
+
     if(!state.ultimoLoteId){
-      root.innerHTML = '<div class="card">'+emptyState(ICON.box, "Nenhum lote confirmado ainda", "Confirme uma encomenda na aba Encomendas primeiro — é isso que gera o lote que essa aba usa.")+'</div>'
+      root.innerHTML = toolbar
+        + '<div class="card">'+emptyState(ICON.box, "Nenhum lote confirmado ainda", "Confirme uma encomenda na aba Encomendas primeiro — é isso que gera o lote que essa aba usa. Ou use \"Gerar GTA manual\" acima pra criar uma relação avulsa, sem depender de lote.")+'</div>'
         + '<div class="itens-label" style="margin-top:28px;">Histórico de relações de venda (GTA)</div>'
         + '<div id="viewHistoricoRelacoes"></div>';
       renderHistoricoRelacoes();
+      document.getElementById("btnGtaManual").addEventListener("click", function(){ abrirGtaManualModal(); });
       return;
     }
 
-    root.innerHTML = '<div class="card"><div class="loading-row"><div class="spinner spinner-dark"></div>Carregando pedidos concluídos do lote...</div></div>';
+    root.innerHTML = toolbar + '<div class="card"><div class="loading-row"><div class="spinner spinner-dark"></div>Carregando pedidos concluídos do lote...</div></div>';
+    document.getElementById("btnGtaManual").addEventListener("click", function(){ abrirGtaManualModal(); });
     api("getGtaLoteInfo", { loteId: state.ultimoLoteId }).then(function(info){
       montarViewGta(info.itensConcluidos, { temAtivos: info.temAtivos, categoriasComSobra: info.categoriasComSobra });
     }).catch(function(err){
-      root.innerHTML = '<div class="card">'+emptyState(ICON.box, "Não foi possível carregar", err.message)+'</div>';
+      root.innerHTML = toolbar + '<div class="card">'+emptyState(ICON.box, "Não foi possível carregar", err.message)+'</div>';
+      document.getElementById("btnGtaManual").addEventListener("click", function(){ abrirGtaManualModal(); });
     });
   }
 
@@ -1624,7 +1630,8 @@
     ordem.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
     var totalGeral = ordem.reduce(function(s,g){ return s + g.valorTotal; }, 0);
 
-    var html = '<div class="card" style="padding:20px;">';
+    var html = '<div class="toolbar"><div class="spacer"></div><button class="btn" id="btnGtaManual">'+ICON.plus+' Gerar GTA manual</button></div>';
+    html += '<div class="card" style="padding:20px;">';
     html += '<div class="itens-label">Pedidos concluídos do lote atual</div>';
 
     var temPendencia = pendencias && (pendencias.temAtivos || (pendencias.categoriasComSobra && pendencias.categoriasComSobra.length > 0));
@@ -1667,6 +1674,7 @@
 
     root.innerHTML = html;
     renderHistoricoRelacoes();
+    document.getElementById("btnGtaManual").addEventListener("click", function(){ abrirGtaManualModal(); });
 
     root.querySelectorAll('[data-act="reabrir-do-gta"]').forEach(function(btn){
       btn.addEventListener("click", function(){
@@ -1752,6 +1760,146 @@
     var agora = new Date();
     var dataImpressao = String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear();
     imprimirLinhasGta(linhas, registro.gta, extras, dataImpressao, agora);
+  }
+
+  // ---------------------------------------------------------------
+  // GTA MANUAL — gera uma relação avulsa, direto (sem passar por
+  // pedido/encomenda/venda), pra casos que precisam de uma GTA rápida.
+  // ---------------------------------------------------------------
+  function abrirGtaManualModal(){
+    if(CATEGORIAS.length === 0){
+      toast("Nenhum tipo de ave cadastrado ainda.", "err");
+      return;
+    }
+    var linhas = [{ cliente: "", telefone: "", endereco: "", municipio: "", categoria: CATEGORIAS[0].nome, qtd: 1 }];
+
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    html += '<div class="modal-head"><h2>Gerar GTA manual</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p class="help" style="margin:0 0 14px;">Pra gerar uma relação avulsa, sem precisar passar pelos pedidos, encomenda ou vendas do sistema — preenche os dados na mão.</p>';
+
+    html += '<div class="field-row">';
+    html += '<div class="field"><label>Data</label><input type="date" id="gmData" value="'+dataDeHojeISO()+'"></div>';
+    html += '<div class="field"><label>Código GTA</label><input type="text" id="gmGta" placeholder="Ex: 795500"></div>';
+    html += '</div>';
+
+    html += '<label class="itens-label">Vendas</label>';
+    html += '<div id="gmLinhasWrap"></div>';
+    html += '<button type="button" class="btn btn-sm" id="btnAddLinhaGm" style="margin-bottom:16px;">'+ICON.plus+' Adicionar linha</button>';
+
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mGerar">'+ICON.check+' Gerar e imprimir</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    function renderLinhasGm(){
+      var wrap = document.getElementById("gmLinhasWrap");
+      wrap.innerHTML = linhas.map(function(l, idx){
+        var h = '<div class="card" style="padding:14px;margin-bottom:10px;position:relative;">';
+        if(linhas.length > 1){
+          h += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost gmRemoveLinha" data-idx="'+idx+'" style="position:absolute;top:10px;right:10px;" title="Remover">'+ICON.trash+'</button>';
+        }
+        h += '<div class="field-row">';
+        h += '<div class="field"><label>Cliente</label><input type="text" class="gmCliente" data-idx="'+idx+'" value="'+escapeHtml(l.cliente)+'" placeholder="Nome"></div>';
+        h += '<div class="field"><label>Telefone</label><input type="tel" class="gmTelefone" data-idx="'+idx+'" value="'+escapeHtml(l.telefone)+'" placeholder="(54) 99999-9999"></div>';
+        h += '</div>';
+        h += '<div class="field-row">';
+        h += '<div class="field"><label>Endereço</label><input type="text" class="gmEndereco" data-idx="'+idx+'" value="'+escapeHtml(l.endereco)+'" placeholder="Endereço"></div>';
+        h += '<div class="field"><label>Município</label><input type="text" class="gmMunicipio" data-idx="'+idx+'" value="'+escapeHtml(l.municipio)+'" placeholder="Município"></div>';
+        h += '</div>';
+        h += '<div class="field-row">';
+        h += '<div class="field"><label>Tipo de ave</label><select class="gmCategoria" data-idx="'+idx+'">'+CATEGORIAS.map(function(c){
+          return '<option value="'+escapeHtml(c.nome)+'"'+(c.nome===l.categoria?' selected':'')+'>'+escapeHtml(c.nome)+'</option>';
+        }).join("")+'</select></div>';
+        h += '<div class="field"><label>Quantidade</label><input type="text" inputmode="numeric" class="gmQtd" data-idx="'+idx+'" value="'+(l.qtd===0?"":l.qtd)+'" placeholder="Qtd"></div>';
+        h += '</div>';
+        h += '</div>';
+        return h;
+      }).join("");
+
+      wrap.querySelectorAll(".gmCliente").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].cliente = inp.value; }); });
+      wrap.querySelectorAll(".gmTelefone").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].telefone = inp.value; }); });
+      wrap.querySelectorAll(".gmEndereco").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].endereco = inp.value; }); });
+      wrap.querySelectorAll(".gmMunicipio").forEach(function(inp){ inp.addEventListener("input", function(){ linhas[Number(inp.dataset.idx)].municipio = inp.value; }); });
+      wrap.querySelectorAll(".gmCategoria").forEach(function(sel){ sel.addEventListener("change", function(){ linhas[Number(sel.dataset.idx)].categoria = sel.value; }); });
+      wrap.querySelectorAll(".gmQtd").forEach(function(inp){
+        inp.addEventListener("input", function(){
+          linhas[Number(inp.dataset.idx)].qtd = Number(inp.value) || 0;
+          preserveFocus(inp);
+        });
+      });
+      wrap.querySelectorAll(".gmRemoveLinha").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          linhas.splice(Number(btn.dataset.idx), 1);
+          renderLinhasGm();
+        });
+      });
+    }
+
+    renderLinhasGm();
+
+    document.getElementById("btnAddLinhaGm").addEventListener("click", function(){
+      linhas.push({ cliente: "", telefone: "", endereco: "", municipio: "", categoria: CATEGORIAS[0].nome, qtd: 1 });
+      renderLinhasGm();
+    });
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+
+    document.getElementById("mGerar").addEventListener("click", function(){
+      var dataInput = document.getElementById("gmData").value;
+      var gta = document.getElementById("gmGta").value.trim();
+      if(!dataInput){ toast("Informe a data.", "err"); return; }
+      if(!gta){ toast("Informe o código GTA.", "err"); return; }
+      var validas = linhas.filter(function(l){ return l.cliente.trim() && (Number(l.qtd)||0) > 0; });
+      if(validas.length === 0){ toast("Preencha ao menos uma venda com cliente e quantidade.", "err"); return; }
+
+      var partes = dataInput.split("-");
+      var dataFormatada = partes[2] + "/" + partes[1] + "/" + partes[0];
+
+      var grupos = validas.map(function(l){
+        var valorTotal = (Number(l.qtd)||0) * precoDe(l.categoria);
+        return {
+          nome: l.cliente.trim(), telefone: l.telefone.trim(), endereco: l.endereco.trim(), municipio: l.municipio.trim(),
+          itens: [{ categoria: l.categoria, subtipo: "", qtd: Number(l.qtd)||0, valorTotal: valorTotal }]
+        };
+      });
+
+      var itensParaSalvar = [];
+      grupos.forEach(function(g){
+        g.itens.forEach(function(it){
+          itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, subtipo: it.subtipo, qtd: it.qtd, valorTotal: it.valorTotal });
+        });
+      });
+
+      var btn = document.getElementById("mGerar");
+      btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+
+      api("registrarRelacaoVenda", { gta: gta, loteId: "", itens: itensParaSalvar }).then(function(data){
+        state.relacoesVenda = data || state.relacoesVenda;
+        closeModal();
+        imprimirGtaManual(gta, grupos, dataFormatada);
+        toast("GTA gerada e salva no histórico.");
+        renderGta();
+      }).catch(function(err){
+        toast(err.message, "err");
+        btn.disabled = false; btn.innerHTML = ICON.check + ' Gerar e imprimir';
+      });
+    });
+  }
+
+  function imprimirGtaManual(gta, grupos, dataFormatada){
+    var linhasFlat = [];
+    grupos.forEach(function(g){
+      g.itens.forEach(function(it){
+        linhasFlat.push({
+          data: dataFormatada, comprador: g.nome, telefone: g.telefone || "",
+          endereco: g.endereco || "", municipio: g.municipio || "",
+          especie: it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+        });
+      });
+    });
+    var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
+    imprimirLinhasGta(linhasFlat, gta, extras, dataFormatada, new Date());
   }
 
   function imprimirLinhasGta(linhas, gta, extras, dataFormatada, agora){
@@ -4342,6 +4490,10 @@
         + '<li>O botão de seta ao lado de um comprador devolve o pedido dele pra <b>ativo</b> (caso tenha marcado como encerrado por engano) — some daqui e volta a aparecer na aba Pedidos.</li>'
         + '<li>Digite o <b>código GTA</b> (a Guia de Trânsito Animal) e clique em <b>Imprimir e salvar</b>. Sai no formato oficial (Estado do RS / Relatório de Venda de Aves Vivas) — se tiver muitas vendas, divide sozinho em mais folhas, numeradas automaticamente.</li>'
         + '<li>Depois de imprimir, a lista fica pronta pra próxima venda, e os pedidos impressos passam a aparecer no Histórico.</li>'
+        + '</ul>');
+      html += helpSection(ICON.plus, "Gerar GTA manual", '<p>O botão <b>"Gerar GTA manual"</b>, no topo da aba, cria uma relação avulsa direto — sem precisar ter pedido, encomenda ou venda nenhuma cadastrada no sistema.</p><ul>'
+        + '<li>Você escolhe a data, digita o código GTA, e preenche as vendas na mão (cliente, telefone, endereço, município, tipo de ave e quantidade) — pode adicionar quantas linhas quiser.</li>'
+        + '<li>Sai no mesmo formato oficial e já fica salva no histórico, igual as outras.</li>'
         + '</ul>');
       html += helpSection(ICON.historico, "Histórico de relações de venda", '<p>Mais abaixo fica tudo que já foi impresso, com filtro por <b>código GTA</b> e por <b>período</b>, e o valor total somado do que estiver filtrado.</p><ul>'
         + '<li>Clique numa linha (código + data) pra ver os clientes/itens daquela relação.</li>'
