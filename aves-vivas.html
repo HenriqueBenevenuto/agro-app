@@ -2495,17 +2495,17 @@
   }
 
   function abrirFiltroTiposModal(){
-    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help">';
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help" style="max-width:640px;">';
     html += '<div class="modal-head"><h2>Filtrar tipos de ave</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
     html += '<p class="help" style="margin:0 0 14px;">Desmarque os tipos que você não quer ver na lista de Pedidos (e no Estoque acima). Todos vêm marcados por padrão.</p>';
     html += '<div style="display:flex;gap:10px;margin-bottom:12px;">';
     html += '<button type="button" class="btn btn-sm" id="btnMarcarTodos">Marcar todos</button>';
     html += '<button type="button" class="btn btn-sm" id="btnDesmarcarTodos">Desmarcar todos</button>';
     html += '</div>';
-    html += '<div class="gerenciar-tipos-lista" style="max-height:340px;overflow-y:auto;">';
+    html += '<div class="gerenciar-tipos-lista" style="max-height:420px;overflow-y:auto;column-count:2;column-gap:16px;">';
     CATEGORIAS.forEach(function(c){
       var marcado = state.categoriasExcluidas.indexOf(c.nome) === -1;
-      html += '<label class="gerenciar-tipo-linha" style="cursor:pointer;">';
+      html += '<label class="gerenciar-tipo-linha" style="cursor:pointer;break-inside:avoid-column;">';
       html += '<span>'+escapeHtml(c.nome)+'</span>';
       html += '<input type="checkbox" class="ftTipo" data-cat="'+encodeURIComponent(c.nome)+'"'+(marcado?' checked':'')+'>';
       html += '</label>';
