@@ -583,19 +583,41 @@
   // ---------------------------------------------------------------
   // API
   // ---------------------------------------------------------------
-  function api(action, payload){
+  function api(action, payload, tentativa){
+    tentativa = tentativa || 1;
     if(!state.apiUrl){
       openSettingsModal();
       return Promise.reject(new Error("Configure a URL da API primeiro."));
     }
+    var maxTentativas = 6; // insiste bem mais antes de desistir
+
+    function tentarDeNovo(){
+      var atraso = Math.min(1000 * tentativa, 4000); // vai aumentando o intervalo, até um teto
+      return new Promise(function(resolve){ setTimeout(resolve, atraso); })
+        .then(function(){ return api(action, payload, tentativa + 1); });
+    }
+
     return fetch(state.apiUrl, {
       method: "POST",
       body: JSON.stringify({ action: action, payload: payload || {}, senha: senhaAtual })
-    }).then(function(res){ return res.json(); })
-      .then(function(json){
-        if(!json.ok) throw new Error(json.error || "Erro desconhecido.");
-        return json.data;
-      });
+    }).then(function(res){ return res.text(); }, function(){
+      // Erro de rede/CORS/instabilidade na própria requisição -- tenta de novo.
+      if(tentativa < maxTentativas) return tentarDeNovo();
+      throw new Error("Não foi possível conectar depois de várias tentativas. Confira sua internet e tente de novo.");
+    }).then(function(texto){
+      var json;
+      try {
+        json = JSON.parse(texto);
+      } catch(e){
+        // O Google às vezes devolve uma página de erro dele em vez do
+        // JSON esperado (instabilidade momentânea) -- tenta de novo
+        // sozinho antes de mostrar qualquer erro pra pessoa.
+        if(tentativa < maxTentativas) return tentarDeNovo();
+        throw new Error("O servidor não respondeu direito depois de várias tentativas. Tente de novo em instantes.");
+      }
+      if(!json.ok) throw new Error(json.error || "Erro desconhecido.");
+      return json.data;
+    });
   }
 
   function setStatus(ok, text){
@@ -1213,7 +1235,7 @@
     var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-sm">';
     html += '<div class="modal-head"><h2>Preço por ave</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
     html += '<p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">'+escapeHtml(categoria)+'</p>';
-    html += '<div class="field"><label>Valor de cada ave (R$)</label><input type="number" min="0" step="0.01" id="pvPreco" value="'+atual.toFixed(2)+'"></div>';
+    html += '<div class="field"><label>Valor de cada ave (R$)</label><input type="text" inputmode="decimal" id="pvPreco" value="'+String(atual.toFixed(2)).replace(".",",")+'"></div>';
     html += '<p class="help">Esse valor é usado para calcular o total de cada pedido automaticamente.</p>';
     html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">Salvar</button></div>';
     html += '</div></div>';
@@ -1223,7 +1245,7 @@
     document.getElementById("mCancel").addEventListener("click", closeModal);
     document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
     document.getElementById("mSave").addEventListener("click", function(){
-      var preco = Number(document.getElementById("pvPreco").value);
+      var preco = Number(document.getElementById("pvPreco").value.trim().replace(",", "."));
       if(isNaN(preco) || preco < 0){ toast("Informe um valor válido.", "err"); return; }
       var btn = document.getElementById("mSave");
       btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
@@ -3390,7 +3412,7 @@
     html += '<div class="field"><label>Categoria</label><input type="text" id="pnCategoria" list="pnCategoriaLista" placeholder="Ex: Laranjeiras" value="'+escapeHtml(planta?planta.categoria:"")+'">';
     html += '<datalist id="pnCategoriaLista">'+categoriasExistentes.map(function(c){ return '<option value="'+escapeHtml(c)+'">'; }).join("")+'</datalist>';
     html += '<p class="help">Plantas da mesma categoria ganham a mesma cor de etiqueta nas listas.</p></div>';
-    html += '<div class="field"><label>Preço por unidade (R$)</label><input type="number" min="0" step="0.01" id="pnPreco" value="'+(planta?Number(planta.preco).toFixed(2):"0.00")+'"></div>';
+    html += '<div class="field"><label>Preço por unidade (R$)</label><input type="text" inputmode="decimal" id="pnPreco" value="'+(planta?String(Number(planta.preco).toFixed(2)).replace(".",","):"0,00")+'"></div>';
     html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Adicionar")+'</button></div>';
     html += '</div></div>';
     document.getElementById("modalRoot").innerHTML = html;
@@ -3402,7 +3424,7 @@
       var nome = document.getElementById("pnNome").value.trim();
       if(!nome){ toast("Informe o nome da planta.", "err"); return; }
       var categoria = document.getElementById("pnCategoria").value.trim();
-      var preco = Number(document.getElementById("pnPreco").value);
+      var preco = Number(document.getElementById("pnPreco").value.trim().replace(",", "."));
       if(isNaN(preco) || preco < 0){ toast("Informe um preço válido.", "err"); return; }
       var payload = { rowIndex: editing ? planta.rowIndex : undefined, nome: nome, preco: preco, categoria: categoria };
       var btn = document.getElementById("mSave");
@@ -3886,7 +3908,7 @@
     html += '<div class="field"><label>Nome</label><input type="text" id="mqNome" placeholder="Ex: Roçadeira" value="'+escapeHtml(editing?maquina.nome:"")+'"></div>';
     html += '<div class="field"><label>Marca (opcional)</label><input type="text" id="mqMarca" list="mqMarcaLista" placeholder="Ex: Stihl" value="'+escapeHtml(editing?maquina.marca:"")+'">';
     html += '<datalist id="mqMarcaLista">'+marcasExistentes.map(function(mk){ return '<option value="'+escapeHtml(mk)+'">'; }).join("")+'</datalist></div>';
-    html += '<div class="field"><label>Valor por dia (R$)</label><input type="number" min="0" step="0.01" id="mqValorDia" value="'+(editing?Number(maquina.valorDia).toFixed(2):"0.00")+'"></div>';
+    html += '<div class="field"><label>Valor por dia (R$)</label><input type="text" inputmode="decimal" id="mqValorDia" value="'+(editing?String(Number(maquina.valorDia).toFixed(2)).replace(".",","):"0,00")+'"></div>';
     html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Adicionar")+'</button></div>';
     html += '</div></div>';
     document.getElementById("modalRoot").innerHTML = html;
@@ -3898,7 +3920,8 @@
       var nome = document.getElementById("mqNome").value.trim();
       if(!nome){ toast("Informe o nome da máquina.", "err"); return; }
       var marca = document.getElementById("mqMarca").value.trim();
-      var valorDia = Number(document.getElementById("mqValorDia").value);
+      var valorDiaTexto = document.getElementById("mqValorDia").value.trim().replace(",", ".");
+      var valorDia = Number(valorDiaTexto);
       if(isNaN(valorDia) || valorDia < 0){ toast("Informe um valor válido.", "err"); return; }
       var payload = { rowIndex: editing ? maquina.rowIndex : undefined, nome: nome, marca: marca, valorDia: valorDia };
       var btn = document.getElementById("mSave");
