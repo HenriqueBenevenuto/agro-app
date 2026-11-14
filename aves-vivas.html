@@ -355,6 +355,12 @@
     tbody td::before{content:attr(data-label);font-size:11px;font-weight:600;color:var(--ink-mute);}
     .row-actions{justify-content:flex-start;padding-top:6px;}
   }
+  .pago-badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;font-size:11.5px;font-weight:700;line-height:1.35;max-width:150px;}
+  .pago-total{background:var(--green-soft);color:var(--green);}
+  .pago-parcial{background:var(--amber-soft);color:var(--amber);}
+  .pago-row{display:flex;gap:8px;align-items:flex-end;}
+  .pago-row .field{flex:1;margin-bottom:0;}
+  .pago-info{font-size:12.5px;color:var(--ink-soft);margin:6px 0 16px;}
   #areaImpressao{display:none;}
 
   @media print {
@@ -574,6 +580,30 @@
 
   function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
   function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+  // Aceita "50", "50,5", "1.234,56" ou "50.5" e devolve número.
+  function parseMoeda(txt){
+    var t = String(txt == null ? "" : txt).trim().replace(/R\$|\s/g, "");
+    if(!t) return 0;
+    if(t.indexOf(",") !== -1) t = t.replace(/\./g, "").replace(",", ".");
+    var n = Number(t);
+    return isNaN(n) || n < 0 ? 0 : Math.round(n * 100) / 100;
+  }
+
+  // O Apps Script novo sempre devolve "valorPago" em cada linha de pedido.
+  // Se a planilha tem pedidos e nenhum veio com esse campo, o script ainda
+  // é o antigo -- aí o app não deixa digitar pagamento (seria perdido).
+  function scriptSuportaPagamento(){
+    if(!state.pedidos || state.pedidos.length === 0) return true;
+    return state.pedidos.some(function(p){ return p.valorPago !== undefined && p.rowIndex; });
+  }
+
+  // Selo de pagamento do pedido (só aparece se já tem algo pago).
+  function seloPagamentoHtml(valorTotal, valorPago){
+    if(!(valorPago > 0)) return '';
+    if(valorPago >= valorTotal - 0.004) return '<span class="pago-badge pago-total">Pago</span>';
+    return '<span class="pago-badge pago-parcial">Pago '+formatMoeda(valorPago)+' · falta '+formatMoeda(valorTotal - valorPago)+'</span>';
+  }
 
   function formatMoeda(v){
     var n = Number(v) || 0;
@@ -1015,6 +1045,7 @@
           observacoes: p.observacoes,
           status: p.status || "Ativo",
           dataCriacao: p.dataCriacao,
+          valorPago: Number(p.valorPago) || 0,
           itens: []
         };
         order.push(byId[p.pedidoId]);
@@ -1031,6 +1062,7 @@
     order.forEach(function(g){
       g.qtdTotal = g.itens.reduce(function(s,it){ return s + it.qtd; }, 0);
       g.valorTotal = g.itens.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+      g.aReceber = Math.max(0, g.valorTotal - g.valorPago);
       // Se algum item ainda tem um Lote ID (ainda não entrou numa GTA
       // impressa), o pedido fica esperando na aba GTA -- não deve
       // aparecer no Histórico até isso acontecer.
@@ -1583,16 +1615,21 @@
     }, 200);
   }
 
-  function imprimirListaPedidosAtivos(categoriasConfirmadas){
+  function imprimirListaPedidosAtivos(categoriasConfirmadas, opcoes){
+    opcoes = opcoes || {};
     var lista = groupPedidos().filter(function(g){ return g.status === "Ativo"; })
       .map(function(g){
         var itensFiltrados = g.itens.filter(function(it){ return categoriasConfirmadas.indexOf(it.categoria) !== -1; });
         if(itensFiltrados.length === 0) return null;
         var qtdTotal = itensFiltrados.reduce(function(s,it){ return s + it.qtd; }, 0);
         var valorTotal = itensFiltrados.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+        // Pagamento é do pedido inteiro; se a lista mostra só parte dos
+        // tipos, o pago conta primeiro pra essa parte (nunca passa dela).
+        var pago = Math.min(g.valorPago || 0, valorTotal);
         return {
           nome: g.nome, telefone: g.telefone, municipio: g.municipio,
-          itens: itensFiltrados, qtdTotal: qtdTotal, valorTotal: valorTotal
+          itens: itensFiltrados, qtdTotal: qtdTotal, valorTotal: valorTotal,
+          valorPago: pago, aReceber: valorTotal - pago
         };
       })
       .filter(function(g){ return g !== null; })
@@ -1603,16 +1640,18 @@
       + " " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
 
     var totalGeral = lista.reduce(function(s,g){ return s + g.valorTotal; }, 0);
+    var totalPago = lista.reduce(function(s,g){ return s + g.valorPago; }, 0);
+    var totalAReceber = lista.reduce(function(s,g){ return s + g.aReceber; }, 0);
     var totalAves = lista.reduce(function(s,g){ return s + g.qtdTotal; }, 0);
 
     var html = '<div class="imp-cabecalho">';
-    html += '<h1>Agro Benevenuto — Lista de Pedidos (Tipos Confirmados)</h1>';
-    html += '<p>Encomenda confirmada em: ' + dataHora + ' &nbsp;•&nbsp; ' + lista.length + ' pedido(s) &nbsp;•&nbsp; ' + totalAves + ' ave(s)</p>';
+    html += '<h1>Agro Benevenuto — ' + escapeHtml(opcoes.titulo || "Lista de Pedidos (Tipos Confirmados)") + '</h1>';
+    html += '<p>' + escapeHtml(opcoes.rotuloData || "Encomenda confirmada em:") + ' ' + dataHora + ' &nbsp;•&nbsp; ' + lista.length + ' pedido(s) &nbsp;•&nbsp; ' + totalAves + ' ave(s)</p>';
     html += '</div>';
 
-    html += '<table class="imp-tabela"><thead><tr><th>Cliente</th><th>Tipos de ave</th><th class="imp-valor">Valor</th></tr></thead><tbody>';
+    html += '<table class="imp-tabela"><thead><tr><th>Cliente</th><th>Tipos de ave</th><th class="imp-valor">Valor</th><th class="imp-valor">Pago</th><th class="imp-valor">A receber</th></tr></thead><tbody>';
     if(lista.length === 0){
-      html += '<tr><td colspan="3">Nenhum pedido ativo com os tipos confirmados agora.</td></tr>';
+      html += '<tr><td colspan="5">' + escapeHtml(opcoes.textoVazio || "Nenhum pedido ativo com os tipos confirmados agora.") + '</td></tr>';
     } else {
       lista.forEach(function(g){
         var itensTexto = g.itens.map(function(it){
@@ -1623,16 +1662,67 @@
         html += '<td><b>' + escapeHtml(g.nome) + '</b>' + (g.telefone ? '<br><span class="imp-sub">' + escapeHtml(g.telefone) + (g.municipio ? " — " + escapeHtml(g.municipio) : "") + '</span>' : (g.municipio ? '<br><span class="imp-sub">' + escapeHtml(g.municipio) + '</span>' : '')) + '</td>';
         html += '<td>' + itensTexto + '</td>';
         html += '<td class="imp-valor">' + formatMoeda(g.valorTotal) + '</td>';
+        html += '<td class="imp-valor">' + (g.valorPago > 0 ? formatMoeda(g.valorPago) : '—') + '</td>';
+        html += '<td class="imp-valor"><b>' + (g.aReceber > 0.004 ? formatMoeda(g.aReceber) : 'Pago') + '</b></td>';
         html += '</tr>';
       });
     }
     html += '</tbody>';
-    html += '<tfoot><tr><td colspan="2">Total geral</td><td class="imp-valor">' + formatMoeda(totalGeral) + '</td></tr></tfoot>';
+    html += '<tfoot><tr><td colspan="2">Total geral</td><td class="imp-valor">' + formatMoeda(totalGeral) + '</td><td class="imp-valor">' + formatMoeda(totalPago) + '</td><td class="imp-valor">' + formatMoeda(totalAReceber) + '</td></tr></tfoot>';
     html += '</table>';
     html += '<div class="imp-rodape">Agro Benevenuto — gerado automaticamente pelo Aves Agro.</div>';
 
     document.getElementById("areaImpressao").innerHTML = html;
     imprimirComTituloLimpo();
+  }
+
+  // Imprimir a lista de pedidos ativos a qualquer momento (botão na aba
+  // Pedidos) -- deixa escolher quais tipos de ave entram na folha.
+  function abrirImprimirListaModal(){
+    var tiposComPedido = CATEGORIAS.filter(function(c){ return qtdPedidaAtiva(c.nome) > 0; });
+    if(tiposComPedido.length === 0){
+      toast("Nenhum pedido ativo pra imprimir.", "err");
+      return;
+    }
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help" style="max-width:520px;">';
+    html += '<div class="modal-head"><h2>Imprimir lista de pedidos</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p class="help" style="margin:0 0 14px;">Escolha quais tipos de ave entram na lista. Só aparecem os pedidos ativos que têm algum dos tipos marcados.</p>';
+    html += '<div style="display:flex;gap:10px;margin-bottom:12px;">';
+    html += '<button type="button" class="btn btn-sm" id="btnImpMarcarTodos">Marcar todos</button>';
+    html += '<button type="button" class="btn btn-sm" id="btnImpDesmarcarTodos">Desmarcar todos</button>';
+    html += '</div>';
+    html += '<div class="gerenciar-tipos-lista" style="max-height:360px;overflow-y:auto;">';
+    tiposComPedido.forEach(function(c){
+      html += '<label class="gerenciar-tipo-linha" style="cursor:pointer;">';
+      html += '<span>'+escapeHtml(c.nome)+' <span class="cell-sub">('+qtdPedidaAtiva(c.nome)+' aves)</span></span>';
+      html += '<input type="checkbox" class="impTipo" data-cat="'+encodeURIComponent(c.nome)+'" checked>';
+      html += '</label>';
+    });
+    html += '</div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mImprimir">'+ICON.printer.replace('width="28" height="28"','width="16" height="16"')+' Imprimir</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    function marcar(v){ document.querySelectorAll(".impTipo").forEach(function(chk){ chk.checked = v; }); }
+    document.getElementById("btnImpMarcarTodos").addEventListener("click", function(){ marcar(true); });
+    document.getElementById("btnImpDesmarcarTodos").addEventListener("click", function(){ marcar(false); });
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("mImprimir").addEventListener("click", function(){
+      var cats = [];
+      document.querySelectorAll(".impTipo").forEach(function(chk){
+        if(chk.checked) cats.push(decodeURIComponent(chk.dataset.cat));
+      });
+      if(cats.length === 0){ toast("Marque ao menos um tipo de ave.", "err"); return; }
+      var todos = cats.length === tiposComPedido.length;
+      closeModal();
+      imprimirListaPedidosAtivos(cats, {
+        titulo: todos ? "Lista de Pedidos Ativos" : "Lista de Pedidos Ativos (Tipos Selecionados)",
+        rotuloData: "Impresso em:",
+        textoVazio: "Nenhum pedido ativo com os tipos selecionados."
+      });
+    });
   }
 
   // ---------------------------------------------------------------
@@ -1701,7 +1791,9 @@
     if(ordem.length === 0){
       html += '<p class="help" style="margin:0;">Nenhum pedido concluído nesse lote ainda. Assim que você marcar pedidos como encerrados (na aba Pedidos), eles aparecem aqui pra entrar na relação.</p>';
     } else {
-      html += '<div class="field"><label>Código GTA (GTAs de Origem)</label><input type="text" id="gtaCodigo" placeholder="Ex: 795500"'+(temPendencia?' disabled':'')+'></div>';
+      html += '<div class="field" id="gtaCodigoUnicoWrap"><label>Código GTA (GTAs de Origem)</label><input type="text" id="gtaCodigo" placeholder="Ex: 795500"'+(temPendencia?' disabled':'')+'></div>';
+      html += '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:-4px 0 14px;cursor:pointer;"><input type="checkbox" id="gtaDividir"'+(temPendencia?' disabled':'')+'> Esse lote veio com mais de uma GTA (dividir)</label>';
+      html += '<div id="gtaDivisao" style="display:none;"></div>';
 
       html += '<label class="itens-label">Compradores deste lote ('+ordem.length+' cliente'+(ordem.length===1?'':'s')+')</label>';
       html += '<div class="gerenciar-tipos-lista" style="max-height:280px;overflow-y:auto;">';
@@ -1740,20 +1832,138 @@
       });
     });
 
+    // ---- Divisão em mais de uma GTA ----------------------------------
+    // Cada item (cliente + tipo de ave) é atribuído a uma das GTAs.
+    var itensFlat = [];
+    ordem.forEach(function(g){
+      g.itens.forEach(function(it){
+        itensFlat.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, especie: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.valorTotal });
+      });
+    });
+    var divisao = { codigos: ["", ""], atrib: itensFlat.map(function(){ return 0; }) };
+
+    function renderDivisao(){
+      var box = document.getElementById("gtaDivisao");
+      if(!box) return;
+      var opcoesGta = function(sel){
+        return divisao.codigos.map(function(c, i){
+          return '<option value="'+i+'"'+(i===sel?' selected':'')+'>GTA '+(i+1)+(c ? ' ('+escapeHtml(c)+')' : '')+'</option>';
+        }).join("");
+      };
+      var h = '<div class="itens-label">Códigos das GTAs</div>';
+      divisao.codigos.forEach(function(c, i){
+        h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">';
+        h += '<span style="width:56px;font-weight:700;font-size:13px;">GTA '+(i+1)+'</span>';
+        h += '<input type="text" class="gtaCodDiv" data-i="'+i+'" placeholder="Código" value="'+escapeHtml(c)+'" style="flex:1;">';
+        if(divisao.codigos.length > 2) h += '<button type="button" class="btn btn-icon btn-sm btn-danger-ghost gtaRemDiv" data-i="'+i+'" title="Remover essa GTA">'+ICON.trash+'</button>';
+        h += '</div>';
+      });
+      h += '<button type="button" class="btn btn-sm" id="gtaAddDiv" style="margin-bottom:16px;">'+ICON.plus+' Adicionar outra GTA</button>';
+
+      var categorias = [];
+      itensFlat.forEach(function(it){ if(categorias.indexOf(it.categoria) === -1) categorias.push(it.categoria); });
+      if(categorias.length > 1){
+        h += '<div class="itens-label">Atalho: mandar um tipo de ave inteiro pra uma GTA</div>';
+        h += '<div class="gerenciar-tipos-lista" style="margin-bottom:16px;">';
+        categorias.forEach(function(cat){
+          var idxs = itensFlat.map(function(it, i){ return it.categoria === cat ? i : -1; }).filter(function(i){ return i !== -1; });
+          var primeiro = divisao.atrib[idxs[0]];
+          var todosIguais = idxs.every(function(i){ return divisao.atrib[i] === primeiro; });
+          h += '<div class="gerenciar-tipo-linha" style="gap:12px;"><span><span class="tag '+tagClasseDe(cat)+'">'+escapeHtml(cat)+'</span></span>';
+          h += '<select class="gtaCatDiv" data-cat="'+encodeURIComponent(cat)+'" style="width:auto;">'+(todosIguais ? '' : '<option value="" selected>Misturado</option>')+opcoesGta(todosIguais ? primeiro : -1)+'</select></div>';
+        });
+        h += '</div>';
+      }
+
+      h += '<div class="itens-label">Em qual GTA vai cada item</div>';
+      h += '<div class="gerenciar-tipos-lista" style="max-height:320px;overflow-y:auto;">';
+      itensFlat.forEach(function(it, i){
+        var sub = it.subtipo ? ' ('+escapeHtml(it.subtipo)+')' : '';
+        h += '<div class="gerenciar-tipo-linha" style="gap:12px;"><div><b>'+escapeHtml(it.nome)+'</b><div class="cell-sub">'+it.qtd+'x '+escapeHtml(it.categoria)+sub+'</div></div>';
+        h += '<select class="gtaItemDiv" data-i="'+i+'" style="width:auto;">'+opcoesGta(divisao.atrib[i])+'</select></div>';
+      });
+      h += '</div>';
+
+      var resumo = divisao.codigos.map(function(c, gi){
+        var n = divisao.atrib.filter(function(a){ return a === gi; }).length;
+        return 'GTA '+(gi+1)+': '+n+' item(ns)';
+      }).join(' &nbsp;•&nbsp; ');
+      h += '<p class="help" style="margin:10px 0 0;">'+resumo+'</p>';
+      box.innerHTML = h;
+
+      // Ao digitar um código, só atualiza os nomes nas listas de escolha --
+      // sem redesenhar a tela (redesenhar tiraria o cursor do campo).
+      box.querySelectorAll(".gtaCodDiv").forEach(function(inp){
+        inp.addEventListener("input", function(){
+          var gi = Number(inp.dataset.i);
+          divisao.codigos[gi] = inp.value.trim();
+          box.querySelectorAll('select.gtaItemDiv option[value="'+gi+'"], select.gtaCatDiv option[value="'+gi+'"]').forEach(function(op){
+            op.textContent = 'GTA '+(gi+1)+(divisao.codigos[gi] ? ' ('+divisao.codigos[gi]+')' : '');
+          });
+        });
+      });
+      box.querySelectorAll(".gtaRemDiv").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var gi = Number(btn.dataset.i);
+          divisao.codigos.splice(gi, 1);
+          divisao.atrib = divisao.atrib.map(function(a){ return a === gi ? 0 : (a > gi ? a - 1 : a); });
+          renderDivisao();
+        });
+      });
+      document.getElementById("gtaAddDiv").addEventListener("click", function(){ divisao.codigos.push(""); renderDivisao(); });
+      box.querySelectorAll(".gtaCatDiv").forEach(function(sel){
+        sel.addEventListener("change", function(){
+          if(sel.value === "") return;
+          var cat = decodeURIComponent(sel.dataset.cat);
+          itensFlat.forEach(function(it, i){ if(it.categoria === cat) divisao.atrib[i] = Number(sel.value); });
+          renderDivisao();
+        });
+      });
+      box.querySelectorAll(".gtaItemDiv").forEach(function(sel){
+        sel.addEventListener("change", function(){ divisao.atrib[Number(sel.dataset.i)] = Number(sel.value); renderDivisao(); });
+      });
+    }
+
+    var chkDividir = document.getElementById("gtaDividir");
+    if(chkDividir){
+      chkDividir.addEventListener("change", function(){
+        var dividir = chkDividir.checked;
+        document.getElementById("gtaDivisao").style.display = dividir ? "" : "none";
+        document.getElementById("gtaCodigoUnicoWrap").style.display = dividir ? "none" : "";
+        if(dividir){
+          var codUnico = document.getElementById("gtaCodigo").value.trim();
+          if(codUnico && !divisao.codigos[0]) divisao.codigos[0] = codUnico;
+          renderDivisao();
+        }
+      });
+    }
+
     var btnImprimir = document.getElementById("btnImprimirGta");
     if(btnImprimir){
       btnImprimir.addEventListener("click", function(){
-        var gta = document.getElementById("gtaCodigo").value.trim();
-        if(!gta){ toast("Informe o código GTA.", "err"); return; }
+        // Cópias novas a cada clique (a revisão de espécie mexe nelas).
+        var itensParaSalvar = itensFlat.map(function(it){ var c = {}; Object.keys(it).forEach(function(k){ c[k] = it[k]; }); return c; });
 
-        var itensParaSalvar = [];
-        ordem.forEach(function(g){
-          g.itens.forEach(function(it){
-            itensParaSalvar.push({ nome: g.nome, telefone: g.telefone, endereco: g.endereco, municipio: g.municipio, categoria: it.categoria, especie: it.categoria, subtipo: it.subtipo, qtd: it.qtd, rowIndex: it.rowIndex, valorTotal: it.valorTotal });
-          });
-        });
+        if(!(chkDividir && chkDividir.checked)){
+          var gta = document.getElementById("gtaCodigo").value.trim();
+          if(!gta){ toast("Informe o código GTA.", "err"); return; }
+          abrirRevisaoEspecieModal(gta, itensParaSalvar, state.ultimoLoteId);
+          return;
+        }
 
-        abrirRevisaoEspecieModal(gta, itensParaSalvar, state.ultimoLoteId);
+        var codigos = divisao.codigos.map(function(c){ return String(c||"").trim(); });
+        var grupos = codigos.map(function(c){ return { gta: c, itens: [] }; });
+        itensParaSalvar.forEach(function(it, i){ grupos[divisao.atrib[i]].itens.push(it); });
+        var usados = grupos.filter(function(g){ return g.itens.length > 0; });
+        if(usados.length < 2){ toast("Pra dividir, coloque itens em pelo menos 2 GTAs (ou desmarque a divisão).", "err"); return; }
+        var semCodigo = grupos.map(function(g, i){ return g.itens.length > 0 && !g.gta ? "GTA " + (i+1) : null; }).filter(Boolean);
+        if(semCodigo.length){ toast("Informe o código da " + semCodigo.join(" e da ") + ".", "err"); return; }
+        var codigosUsados = usados.map(function(g){ return g.gta; });
+        if(codigosUsados.some(function(c, i){ return codigosUsados.indexOf(c) !== i; })){ toast("Tem duas GTAs com o mesmo código.", "err"); return; }
+        var vazias = grupos.filter(function(g){ return g.itens.length === 0 && g.gta; }).map(function(g){ return g.gta; });
+        if(vazias.length){ toast("A GTA " + vazias.join(", ") + " está sem nenhum item. Remova ela ou mande algum item pra ela.", "err"); return; }
+
+        abrirRevisaoEspecieModal(codigosUsados.join(" / "), itensParaSalvar, state.ultimoLoteId, null, usados);
       });
     }
   }
@@ -1768,7 +1978,7 @@
   // o texto que vai na coluna "Espécie" de cada linha, já que às vezes o
   // nome que precisa aparecer na GTA é diferente do nome interno do
   // sistema (varia conforme a nota do fornecedor).
-  function abrirRevisaoEspecieModal(gta, itensParaSalvar, loteId, dataFormatadaCustom){
+  function abrirRevisaoEspecieModal(gta, itensParaSalvar, loteId, dataFormatadaCustom, gruposGta){
     // Agrupa por categoria original -- um campo de edição por tipo de
     // ave, não um por linha (assim corrigir o nome de um tipo já corrige
     // em todos os clientes que compraram aquele tipo, de uma vez).
@@ -1797,6 +2007,9 @@
       html += '</div>';
     });
     html += '</div>';
+    if(gruposGta){
+      html += '<p class="help" style="margin:14px 0 0;">Vão ser salvas e impressas '+gruposGta.length+' relações: '+gruposGta.map(function(g){ return '<b>GTA '+escapeHtml(g.gta)+'</b> ('+g.itens.length+' item(ns))'; }).join(', ')+'.</p>';
+    }
     html += '<div class="modal-actions"><button class="btn" id="mCancelRev">Cancelar</button><button class="btn btn-primary" id="mConfirmarRev">'+ICON.check+' Confirmar e imprimir</button></div>';
     html += '</div></div>';
     document.getElementById("modalRoot2").innerHTML = html;
@@ -1817,6 +2030,11 @@
       var btn = document.getElementById("mConfirmarRev");
       btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
 
+      if(gruposGta){
+        salvarVariasRelacoes(gruposGta, loteId, dataFormatadaCustom, btn);
+        return;
+      }
+
       api("registrarRelacaoVenda", { gta: gta, loteId: loteId || "", itens: itensParaSalvar }).then(function(data){
         state.relacoesVenda = data || state.relacoesVenda;
         closeModal2();
@@ -1829,6 +2047,60 @@
         btn.disabled = false; btn.innerHTML = ICON.check + ' Confirmar e imprimir';
       });
     });
+  }
+
+  // Salva uma relação por GTA, uma depois da outra (o servidor tira os
+  // itens do lote a cada uma). Se alguma falhar, as anteriores já ficam
+  // salvas e no histórico; o que faltou continua na aba GTA pra tentar de novo.
+  function salvarVariasRelacoes(grupos, loteId, dataFormatadaCustom, btn){
+    var salvos = [];
+    var cadeia = Promise.resolve();
+    grupos.forEach(function(g){
+      cadeia = cadeia.then(function(){
+        return api("registrarRelacaoVenda", { gta: g.gta, loteId: loteId || "", itens: g.itens }).then(function(data){
+          state.relacoesVenda = data || state.relacoesVenda;
+          salvos.push(g);
+        });
+      });
+    });
+    cadeia.then(function(){
+      closeModal2();
+      closeModal();
+      imprimirVariasRelacoes(salvos, dataFormatadaCustom);
+      toast(salvos.length + " relações salvas no histórico.");
+      renderGta();
+    }).catch(function(err){
+      closeModal2();
+      closeModal();
+      if(salvos.length){
+        imprimirVariasRelacoes(salvos, dataFormatadaCustom);
+        toast("Salvou só a(s) GTA(s) " + salvos.map(function(g){ return g.gta; }).join(", ") + ". As outras deram erro (" + err.message + ") e continuam na aba GTA — tente de novo.", "err");
+      } else {
+        toast(err.message, "err");
+      }
+      renderGta();
+    });
+  }
+
+  function linhasGtaDeItens(itensParaSalvar, dataFormatada){
+    return itensParaSalvar.map(function(it){
+      return {
+        data: dataFormatada, comprador: it.nome, telefone: it.telefone || "", endereco: it.endereco || "", municipio: it.municipio || "",
+        especie: it.especie || it.categoria, qtd: it.qtd, finalidade: "Consumo Próprio"
+      };
+    });
+  }
+
+  function imprimirVariasRelacoes(grupos, dataFormatadaCustom){
+    if(!grupos.length) return;
+    var agora = new Date();
+    var dataFormatada = dataFormatadaCustom || (String(agora.getDate()).padStart(2,"0") + "/" + String(agora.getMonth()+1).padStart(2,"0") + "/" + agora.getFullYear());
+    var extras = { estabelecimento: "Agro Benevenuto", municipio: "Ernestina", responsavel: "Sandro Benevenuto" };
+    var html = grupos.map(function(g){
+      return montarHtmlGta(linhasGtaDeItens(g.itens, dataFormatada), g.gta, extras, dataFormatada, agora);
+    }).join('<div style="page-break-after:always;"></div>');
+    document.getElementById("areaImpressao").innerHTML = html;
+    imprimirComTituloLimpo();
   }
 
   function imprimirRelacaoVendaComEspecie(gta, itensParaSalvar, dataFormatadaCustom){
@@ -2055,6 +2327,11 @@
   }
 
   function imprimirLinhasGta(linhas, gta, extras, dataFormatada, agora){
+    document.getElementById("areaImpressao").innerHTML = montarHtmlGta(linhas, gta, extras, dataFormatada, agora);
+    imprimirComTituloLimpo();
+  }
+
+  function montarHtmlGta(linhas, gta, extras, dataFormatada, agora){
     var paginas = [];
     for(var i=0; i<linhas.length; i += LINHAS_POR_FOLHA){
       paginas.push(linhas.slice(i, i + LINHAS_POR_FOLHA));
@@ -2063,13 +2340,10 @@
 
     // Folha N° é sempre calculado a partir de quantas páginas essa
     // impressão precisa (1, 2, 3...), nunca digitado.
-    var html = paginas.map(function(linhasDaPagina, idx){
+    return paginas.map(function(linhasDaPagina, idx){
       var numeroFolha = String(idx + 1).padStart(2,"0");
       return construirPaginaGta(linhasDaPagina, extras, gta, dataFormatada, agora, numeroFolha, idx < paginas.length - 1);
     }).join("");
-
-    document.getElementById("areaImpressao").innerHTML = html;
-    imprimirComTituloLimpo();
   }
 
   function construirPaginaGta(linhasDaPagina, extras, gta, dataFormatada, agora, numeroFolha, comQuebraDePagina){
@@ -2432,13 +2706,18 @@
       html += '<td data-label="Tipos de ave">'+tipos+'</td>';
       html += '<td data-label="Qtd total">'+g.qtdTotal+'</td>';
       html += '<td data-label="Município">'+escapeHtml(g.municipio||"")+'</td>';
-      html += '<td data-label="Valor"><b>'+formatMoeda(g.valorTotal)+'</b></td>';
+      var selo = seloPagamentoHtml(g.valorTotal, g.valorPago);
+      html += '<td data-label="Valor"><b>'+formatMoeda(g.valorTotal)+'</b>'+(selo ? '<br>'+selo : '')+'</td>';
       if(showStatusCol) html += '<td data-label="Status">'+statusBadge+'</td>';
       html += '<td data-label="Data" class="cell-sub">'+escapeHtml(g.dataCriacao||"")+'</td>';
       html += '<td><div class="row-actions">';
       var waLink = buildWhatsAppLink(g);
       if(waLink){
-        html += '<button class="btn btn-icon btn-sm btn-whatsapp" data-wa="'+encodeURIComponent(waLink)+'" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</button>';
+        if(g.itens.length > 1){
+          html += '<button class="btn btn-icon btn-sm btn-whatsapp" data-act="wa-escolher" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</button>';
+        } else {
+          html += '<button class="btn btn-icon btn-sm btn-whatsapp" data-wa="'+encodeURIComponent(waLink)+'" title="Enviar mensagem no WhatsApp">'+ICON.whatsapp+'</button>';
+        }
       }
       html += '<button class="btn btn-icon btn-sm" data-act="edit-pedido" data-pid="'+encodeURIComponent(g.pedidoId)+'" title="Editar">'+ICON.edit+'</button>';
       if(g.status === "Encerrado"){
@@ -2454,6 +2733,184 @@
     return html;
   }
 
+  // Mesmo pedido, mas só com parte dos itens (pra mensagem/valor/encerrar
+  // só o que chegou quando o fornecedor não mandou todos os tipos).
+  function subgrupoPedido(g, itens){
+    var copia = {};
+    Object.keys(g).forEach(function(k){ copia[k] = g[k]; });
+    copia.itens = itens;
+    copia.qtdTotal = itens.reduce(function(s,it){ return s + it.qtd; }, 0);
+    copia.valorTotal = itens.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+    return copia;
+  }
+
+  // Item de um pedido ativo que tem ave em estoque pra ser entregue.
+  // Usado só pra deixar marcado por padrão na escolha -- a pessoa pode
+  // mudar à vontade.
+  function itemTemEstoque(it){
+    return (Number(state.estoque[it.categoria]) || 0) >= it.qtd && !naoVeioNaUltimaEncomenda(it.categoria);
+  }
+
+  // Se na conferência da última encomenda foi lançado "Recebido: 0" pra
+  // esse tipo, ele não chegou -- mesmo que o estoque (encomendado) diga
+  // que tem.
+  function naoVeioNaUltimaEncomenda(categoria){
+    var ultima = state.historicoEncomendas && state.historicoEncomendas[0];
+    if(!ultima || !ultima.itens) return false;
+    var item = ultima.itens.filter(function(i){ return i.categoria === categoria; })[0];
+    return !!item && item.recebido !== undefined && item.recebido !== null && Number(item.recebido) === 0;
+  }
+
+  // Janela com uma caixinha por tipo de ave do pedido. Chama onConfirm
+  // com a lista dos itens marcados (sempre ao menos um).
+  function abrirEscolhaItensModal(g, opcoes, onConfirm){
+    var ativo = g.status === "Ativo";
+    var marcadosPadrao = g.itens.map(function(it){ return !ativo || itemTemEstoque(it); });
+    if(!marcadosPadrao.some(function(m){ return m; })) marcadosPadrao = g.itens.map(function(){ return true; });
+
+    var html = '<div class="overlay" id="modalOverlay"><div class="modal modal-help" style="max-width:520px;">';
+    html += '<div class="modal-head"><h2>'+escapeHtml(opcoes.titulo)+'</h2><button class="icon-btn" id="mClose" style="color:var(--ink);border-color:var(--line-strong);background:var(--surface-2);">'+ICON.close+'</button></div>';
+    html += '<p class="help" style="margin:0 0 14px;">'+escapeHtml(opcoes.ajuda)+'</p>';
+    html += '<div class="gerenciar-tipos-lista">';
+    g.itens.forEach(function(it, idx){
+      var sub = it.subtipo ? ' <span class="cell-sub">('+escapeHtml(it.subtipo)+')</span>' : '';
+      var aviso = !ativo ? '' : (naoVeioNaUltimaEncomenda(it.categoria) ? 'não veio na última encomenda' : (!itemTemEstoque(it) ? 'sem estoque suficiente' : ''));
+      var semEstoque = aviso ? ' <span class="cell-sub" style="color:var(--red);">'+aviso+'</span>' : '';
+      html += '<label class="gerenciar-tipo-linha" style="cursor:pointer;gap:12px;">';
+      html += '<span><span class="tipo-qtd">x'+it.qtd+'</span> <span class="tag '+tagClasseDe(it.categoria)+'">'+escapeHtml(it.categoria)+'</span>'+sub+semEstoque+'</span>';
+      html += '<input type="checkbox" class="escItem" data-idx="'+idx+'"'+(marcadosPadrao[idx]?' checked':'')+'>';
+      html += '</label>';
+    });
+    html += '</div>';
+    html += '<div class="pedido-total-row"><span>Valor dos marcados</span><span class="pedido-total-valor" id="escTotal"></span></div>';
+    html += '<div class="modal-actions"><button class="btn" id="mCancel">Cancelar</button><button class="btn btn-primary" id="mEscOk">'+(opcoes.icone||'')+' '+escapeHtml(opcoes.botao)+'</button></div>';
+    html += '</div></div>';
+    document.getElementById("modalRoot").innerHTML = html;
+
+    function escolhidos(){
+      var lista = [];
+      document.querySelectorAll(".escItem").forEach(function(chk){
+        if(chk.checked) lista.push(g.itens[Number(chk.dataset.idx)]);
+      });
+      return lista;
+    }
+    function atualizarTotal(){
+      var total = escolhidos().reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+      document.getElementById("escTotal").textContent = formatMoeda(total);
+    }
+    document.querySelectorAll(".escItem").forEach(function(chk){ chk.addEventListener("change", atualizarTotal); });
+    atualizarTotal();
+
+    document.getElementById("mClose").addEventListener("click", closeModal);
+    document.getElementById("mCancel").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", function(e){ if(e.target.id === "modalOverlay") closeModal(); });
+    document.getElementById("mEscOk").addEventListener("click", function(){
+      var lista = escolhidos();
+      if(lista.length === 0){ toast("Marque ao menos um tipo de ave.", "err"); return; }
+      closeModal();
+      onConfirm(lista);
+    });
+  }
+
+  // Confere o estoque só dos itens entregues e pede confirmação. Se for
+  // o pedido inteiro, encerra como sempre; se for só parte, separa o
+  // restante num pedido ativo novo e encerra o resto.
+  function iniciarEncerramento(g, itensEntregues){
+    var parcial = itensEntregues.length < g.itens.length;
+
+    var necessarioPorCategoria = {};
+    itensEntregues.forEach(function(it){
+      necessarioPorCategoria[it.categoria] = (necessarioPorCategoria[it.categoria]||0) + it.qtd;
+    });
+    var faltando = Object.keys(necessarioPorCategoria).filter(function(categoria){
+      var disponivel = Number(state.estoque[categoria]) || 0;
+      return necessarioPorCategoria[categoria] > disponivel;
+    });
+    if(faltando.length > 0){
+      toast('Não tem ave suficiente em estoque pra encerrar: ' + faltando.map(function(c){
+        return c + ' (precisa ' + necessarioPorCategoria[c] + ', tem ' + (Number(state.estoque[c])||0) + ' sobrando)';
+      }).join('; ') + '.', "err");
+      return;
+    }
+
+    if(!parcial){
+      var mensagem = "Encerrar pedido de " + escapeHtml(g.nome) + "? Pedidos encerrados esperam na aba GTA até terminar de vender todas as aves, pra aí gerar a guia de transporte.";
+      confirmModal("Encerrar pedido", mensagem, "Encerrar", function(){
+        api("encerrarPedido", { pedidoId: g.pedidoId }).then(function(){
+          toast("Pedido encerrado.");
+          loadPedidos();
+          loadEstoque();
+        }).catch(function(err){ toast(err.message, "err"); });
+      });
+      return;
+    }
+
+    var restantes = g.itens.filter(function(it){ return itensEntregues.indexOf(it) === -1; });
+    function listaTexto(itens){
+      return itens.map(function(it){
+        var sub = it.subtipo ? " (" + escapeHtml(it.subtipo) + ")" : "";
+        return "• " + it.qtd + "x " + escapeHtml(it.categoria) + sub;
+      }).join("<br>");
+    }
+    var valorEntregue = itensEntregues.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+    var pagoNaEntrega = Math.min(g.valorPago || 0, valorEntregue);
+    var textoPago = (g.valorPago || 0) > 0
+      ? (pagoNaEntrega >= valorEntregue - 0.004 ? " — já pago" : " — pago " + formatMoeda(pagoNaEntrega) + ", falta " + formatMoeda(valorEntregue - pagoNaEntrega))
+      : "";
+    var corpo = "<b>Entregue agora e encerrado</b> (" + formatMoeda(valorEntregue) + textoPago + "):<br>" + listaTexto(itensEntregues)
+      + "<br><br><b>Continua ativo, como um pedido separado:</b><br>" + listaTexto(restantes);
+    confirmModal("Encerrar só parte do pedido", corpo, "Encerrar parte", function(){
+      encerrarPedidoParcial(g, itensEntregues, restantes);
+    });
+  }
+
+  function encerrarPedidoParcial(g, itensEntregues, restantes){
+    toast("Separando o pedido...");
+    var dados = { nome: g.nome, telefone: g.telefone || "", endereco: g.endereco || "", municipio: g.municipio || "" };
+    var obsOriginal = g.observacoes || "";
+    var marca = "Restante do pedido de " + String(g.dataCriacao || "").split(" ")[0];
+    var obsRestante = obsOriginal.indexOf("Restante do pedido de") !== -1 ? obsOriginal : (obsOriginal ? obsOriginal + " — " + marca : marca);
+    var novoId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    // O que já foi pago cobre primeiro a parte entregue agora; se sobrar
+    // (pagou adiantado tudo), o resto fica de crédito no pedido restante.
+    var valorEntregue = itensEntregues.reduce(function(s,it){ return s + it.qtd * precoDe(it.categoria); }, 0);
+    var pagoEntregue = Math.min(g.valorPago || 0, valorEntregue);
+    var pagoRestante = Math.max(0, Math.round(((g.valorPago || 0) - pagoEntregue) * 100) / 100);
+
+    function payloadItens(itens, comLote){
+      return itens.map(function(it){
+        var obj = { categoria: it.categoria, subtipo: it.subtipo || "", qtd: it.qtd };
+        if(comLote && it.loteId) obj.loteId = it.loteId;
+        return obj;
+      });
+    }
+
+    // Ordem pensada pra nunca perder ave se algo falhar no meio: primeiro
+    // cria o pedido com o restante, só depois tira esses itens do
+    // original e encerra.
+    api("addPedido", {
+      pedidoId: novoId, nome: dados.nome, telefone: dados.telefone, endereco: dados.endereco, municipio: dados.municipio,
+      observacoes: obsRestante, itens: payloadItens(restantes, false),
+      valorPago: pagoRestante, copiarDataDoPedidoId: g.pedidoId
+    }).then(function(){
+      return api("updatePedido", {
+        pedidoId: g.pedidoId, nome: dados.nome, telefone: dados.telefone, endereco: dados.endereco, municipio: dados.municipio,
+        observacoes: obsOriginal, itens: payloadItens(itensEntregues, true),
+        valorPago: pagoEntregue
+      });
+    }).then(function(){
+      return api("encerrarPedido", { pedidoId: g.pedidoId });
+    }).then(function(){
+      toast("Pedido encerrado. O restante continua ativo.");
+      loadPedidos();
+      loadEstoque();
+    }).catch(function(err){
+      toast("Não foi possível concluir: " + err.message + " Confira o pedido de " + g.nome + ".", "err");
+      loadPedidos();
+      loadEstoque();
+    });
+  }
+
   function wirePedidoRowActions(root){
     root.querySelectorAll('[data-wa]').forEach(function(btn){
       btn.addEventListener("click", function(){ abrirExterno(decodeURIComponent(btn.dataset.wa)); });
@@ -2464,37 +2921,37 @@
         if(g) openPedidoModal(g);
       });
     });
+    root.querySelectorAll('[data-act="wa-escolher"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var g = findPedidoGroup(decodeURIComponent(btn.dataset.pid));
+        if(!g) return;
+        abrirEscolhaItensModal(g, {
+          titulo: "Mensagem no WhatsApp",
+          ajuda: "Esse pedido tem mais de um tipo de ave. Marque só os que já chegaram — a mensagem vai só com eles.",
+          botao: "Abrir WhatsApp",
+          icone: ICON.whatsapp
+        }, function(itensEscolhidos){
+          var link = buildWhatsAppLink(subgrupoPedido(g, itensEscolhidos));
+          if(link) abrirExterno(link);
+        });
+      });
+    });
     root.querySelectorAll('[data-act="encerrar"]').forEach(function(btn){
       btn.addEventListener("click", function(){
         var g = findPedidoGroup(decodeURIComponent(btn.dataset.pid));
         if(!g) return;
-
-        // Confere se tem ave suficiente em estoque antes de nem oferecer
-        // a opção de encerrar.
-        var necessarioPorCategoria = {};
-        g.itens.forEach(function(it){
-          necessarioPorCategoria[it.categoria] = (necessarioPorCategoria[it.categoria]||0) + it.qtd;
-        });
-        var faltando = Object.keys(necessarioPorCategoria).filter(function(categoria){
-          var disponivel = Number(state.estoque[categoria]) || 0;
-          return necessarioPorCategoria[categoria] > disponivel;
-        });
-        if(faltando.length > 0){
-          toast('Não tem ave suficiente em estoque pra encerrar: ' + faltando.map(function(c){
-            return c + ' (precisa ' + necessarioPorCategoria[c] + ', tem ' + (Number(state.estoque[c])||0) + ' sobrando)';
-          }).join('; ') + '.', "err");
-          return;
+        if(g.itens.length > 1){
+          abrirEscolhaItensModal(g, {
+            titulo: "Encerrar pedido de " + g.nome,
+            ajuda: "Marque os tipos de ave que estão sendo entregues agora. Os que ficarem desmarcados continuam como um pedido ativo separado, pra próxima encomenda.",
+            botao: "Continuar",
+            icone: ICON.check
+          }, function(itensEscolhidos){
+            iniciarEncerramento(g, itensEscolhidos);
+          });
+        } else {
+          iniciarEncerramento(g, g.itens);
         }
-
-        var mensagem = "Encerrar pedido de " + g.nome + "? Pedidos encerrados esperam na aba GTA até terminar de vender todas as aves, pra aí gerar a guia de transporte.";
-
-        confirmModal("Encerrar pedido", mensagem, "Encerrar", function(){
-          api("encerrarPedido", { pedidoId: g.pedidoId }).then(function(){
-            toast("Pedido encerrado.");
-            loadPedidos();
-            loadEstoque();
-          }).catch(function(err){ toast(err.message, "err"); });
-        });
       });
     });
     root.querySelectorAll('[data-act="reabrir"]').forEach(function(btn){
@@ -2590,6 +3047,7 @@
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovoPedido">'+ICON.plus+' Novo pedido</button>';
     html += '  <button class="btn" id="btnVendaAvulsa">'+ICON.plus+' Venda avulsa</button>';
+    html += '  <button class="btn" id="btnImprimirLista">'+ICON.printer.replace('width="28" height="28"','width="16" height="16"')+' Imprimir lista</button>';
     html += '</div>';
 
     html += '<div class="card">';
@@ -2613,6 +3071,7 @@
     fBusca.addEventListener("input", function(e){ state.buscaPedidos = e.target.value; renderPedidos(); preserveFocus(fBusca); });
     document.getElementById("btnNovoPedido").addEventListener("click", function(){ openPedidoModal(null); });
     document.getElementById("btnVendaAvulsa").addEventListener("click", function(){ abrirVendaAvulsaModal(); });
+    document.getElementById("btnImprimirLista").addEventListener("click", function(){ abrirImprimirListaModal(); });
 
     wireEstoqueActions(root);
     wirePedidoRowActions(root);
@@ -3999,6 +4458,16 @@
 
     html += '<div class="pedido-total-row"><span>Total do pedido</span><span id="pTotalValor" class="pedido-total-valor">R$ 0,00</span></div>';
 
+    var valorPagoInicial = pedidoGroup && pedidoGroup.valorPago ? pedidoGroup.valorPago : 0;
+    var semSuportePago = !scriptSuportaPagamento();
+    html += '<div class="pago-row" style="margin-top:14px;">';
+    html += '<div class="field"><label>Valor já pago (adiantado)</label><input type="text" inputmode="decimal" id="pValorPago" placeholder="0,00" value="'+(valorPagoInicial ? valorPagoInicial.toFixed(2).replace(".", ",") : "")+'"'+(semSuportePago?' disabled':'')+'></div>';
+    html += '<button type="button" class="btn" id="btnPagoTotal"'+(semSuportePago?' disabled':'')+'>Pago total</button>';
+    html += '</div>';
+    html += semSuportePago
+      ? '<div class="pago-info" style="color:var(--red);">Pra usar o pagamento, atualize o Apps Script da planilha (a versão atual ainda não guarda esse valor).</div><div id="pPagoInfo" style="display:none;"></div>'
+      : '<div class="pago-info" id="pPagoInfo"></div>';
+
     html += '<div class="modal-actions">';
     html += '<button class="btn" id="mCancel">Cancelar</button>';
     html += '<button class="btn btn-primary" id="mSave">'+(editing?"Salvar alterações":"Criar pedido")+'</button>';
@@ -4010,9 +4479,23 @@
       return CATEGORIAS.filter(function(c){ return c.nome === nome; })[0] || CATEGORIAS[0];
     }
 
+    function totalDoPedido(){
+      return itens.reduce(function(s, it){ return s + (Number(it.qtd)||0) * precoDe(it.categoria); }, 0);
+    }
+    function atualizarInfoPago(){
+      var info = document.getElementById("pPagoInfo");
+      var campo = document.getElementById("pValorPago");
+      if(!info || !campo) return;
+      var total = totalDoPedido();
+      var pago = parseMoeda(campo.value);
+      if(pago <= 0) info.innerHTML = 'Nada pago ainda.';
+      else if(pago >= total - 0.004) info.innerHTML = '<b style="color:var(--green);">Pedido pago.</b>' + (pago > total + 0.004 ? ' (pagou '+formatMoeda(pago - total)+' a mais)' : '');
+      else info.innerHTML = 'Falta receber: <b>'+formatMoeda(total - pago)+'</b>';
+    }
     function recalcularTotal(){
-      var total = itens.reduce(function(s, it){ return s + (Number(it.qtd)||0) * precoDe(it.categoria); }, 0);
+      var total = totalDoPedido();
       document.getElementById("pTotalValor").textContent = formatMoeda(total);
+      atualizarInfoPago();
     }
 
     function renderItens(){
@@ -4093,6 +4576,12 @@
     renderItens();
     recalcularTotal();
 
+    document.getElementById("pValorPago").addEventListener("input", atualizarInfoPago);
+    document.getElementById("btnPagoTotal").addEventListener("click", function(){
+      document.getElementById("pValorPago").value = totalDoPedido().toFixed(2).replace(".", ",");
+      atualizarInfoPago();
+    });
+
     document.getElementById("btnAddItem").addEventListener("click", function(){
       var usados = itens.map(function(it){ return it.categoria; });
       var proxima = CATEGORIAS.filter(function(c){ return usados.indexOf(c.nome) === -1; })[0] || CATEGORIAS[0];
@@ -4142,6 +4631,7 @@
         endereco: document.getElementById("pEndereco").value.trim(),
         municipio: document.getElementById("pMunicipio").value.trim(),
         observacoes: document.getElementById("pObs").value.trim(),
+        valorPago: parseMoeda(document.getElementById("pValorPago").value),
         itens: itensValidos.map(function(it){ return { categoria: it.categoria, subtipo: it.subtipo || "", qtd: Number(it.qtd) || 0 }; })
       };
 
@@ -4194,7 +4684,8 @@
         subtipoLabel: categoriaInfo ? categoriaInfo.subtipoLabel : null,
         nome: payload.nome, telefone: payload.telefone, endereco: payload.endereco, municipio: payload.municipio,
         subtipo: it.subtipo || "", qtd: it.qtd, observacoes: payload.observacoes,
-        status: statusTexto, dataCriacao: dataCriacaoTexto, pedidoId: payload.pedidoId
+        status: statusTexto, dataCriacao: dataCriacaoTexto, pedidoId: payload.pedidoId,
+        valorPago: Number(payload.valorPago) || 0, loteId: existente ? existente.loteId : ""
       });
     });
     renderPedidos();
