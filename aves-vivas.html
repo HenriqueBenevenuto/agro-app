@@ -258,7 +258,15 @@
   tbody tr:hover{background:var(--surface-2);}
   td[data-label="Valor"], td[data-label="Qtd total"]{font-variant-numeric:tabular-nums;}
   .cell-sub{color:var(--ink-mute);font-size:13px;}
-  .row-actions{display:flex;gap:2px;justify-content:flex-end;}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;}
+  .row-actions .btn-icon{background:var(--surface-2);border-color:var(--line);color:var(--ink-soft);}
+  .row-actions .btn-icon:hover{background:#ECEEE9;border-color:var(--line-strong);color:var(--ink);}
+  .row-actions .btn-whatsapp{background:#E6F4EB;border-color:#D2EADB;color:#1E8A4A;}
+  .row-actions .btn-whatsapp:hover{background:#D5EDDE;border-color:#BFE1CC;color:#16733C;}
+  .row-actions .btn-success-ghost{background:var(--green-soft);border-color:#D4E3D8;color:var(--green);}
+  .row-actions .btn-success-ghost:hover{background:#DCE9DF;border-color:#C3D8C9;color:var(--green-dark);}
+  .row-actions .btn-danger-ghost.btn-icon{background:var(--red-soft);border-color:#F2D5D0;color:var(--red);}
+  .row-actions .btn-danger-ghost.btn-icon:hover{background:#F7DCD7;border-color:#EBC2BB;}
 
   .badge{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-size:12.5px;font-weight:600;}
   .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
@@ -359,7 +367,7 @@
   td[data-label="Valor"]{min-width:220px;}
   td[data-label="Data"]{white-space:nowrap;}
   .valor-falta{font-size:12.5px;font-weight:650;color:var(--amber);white-space:nowrap;}
-  .pago-parcial-tag{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line);margin-top:0;}
+  .pago-parcial-tag{background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--line);}
   .pg-box{display:flex;flex-direction:column;align-items:flex-start;gap:5px;width:132px;margin-top:6px;}
   .pg-box .pg-bar{width:100%;margin-bottom:0;}
   .pg-bar{height:4px;border-radius:4px;background:var(--amber-soft);overflow:hidden;margin-bottom:5px;}
@@ -651,11 +659,7 @@
   function seloPagamentoHtml(valorTotal, valorPago){
     if(!(valorPago > 0)) return '';
     if(valorPago >= valorTotal - 0.004) return '<span class="pago-badge pago-total">'+ICON.check.replace(/width="\d+" height="\d+"/, 'width="12" height="12"')+' Pago</span>';
-    var pct = valorTotal > 0 ? Math.max(4, Math.min(100, Math.round(valorPago / valorTotal * 100))) : 0;
-    return '<div class="pg-box">'
-      + '<div class="pg-bar" title="'+pct+'% pago"><span style="width:'+pct+'%"></span></div>'
-      + '<span class="pago-badge pago-parcial-tag">Pago: '+formatMoeda(valorPago)+'</span>'
-      + '</div>';
+    return '<span class="pago-badge pago-parcial-tag">Pago: '+formatMoeda(valorPago)+'</span>';
   }
 
   // "(falta R$ X)" ao lado do valor total, só quando foi pago uma parte.
