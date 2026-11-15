@@ -1465,7 +1465,9 @@
     var digitos = FORNECEDOR_TELEFONE.replace(/\D/g, "");
     if(digitos.length <= 11) digitos = "55" + digitos;
     var corpo = comItens.map(function(l){ return "• " + l.total + "x " + l.categoria; }).join("\n");
-    var msg = "Olá! Gostaríamos de fazer a encomenda das seguintes aves:\n\n" + corpo + "\n\nObrigado!";
+    var msg = "Olá! Gostaríamos de fazer a encomenda das seguintes aves:\n\n" + corpo
+      + "\n\nPor favor, gerar o pagamento em dois boletos."
+      + "\n\nObrigado!";
     return "https://wa.me/" + digitos + "?text=" + encodeURIComponent(msg);
   }
 
