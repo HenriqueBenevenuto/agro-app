@@ -115,7 +115,7 @@
   /* Barra de ferramentas acima das listas */
   .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;}
   .toolbar .spacer{flex:1;}
-  .search-box{position:relative;min-width:240px;}
+  .search-box{position:relative;flex:1 1 200px;min-width:170px;max-width:340px;}
   .search-box input[type=text]{width:100%;padding:9px 12px 9px 36px;font-size:15px;}
   .search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-mute);pointer-events:none;width:16px;height:16px;}
 
@@ -164,6 +164,12 @@
   }
   .estoque-head-aves:hover{background:var(--surface-2);}
   .estoque-table{margin-top:0;}
+  .btn-toggle .btn-toggle-dot{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--line-strong);background:var(--surface);flex-shrink:0;position:relative;}
+  .btn-toggle.ativo{background:var(--green-soft);border-color:#BFD5C6;color:var(--green-dark);}
+  .btn-toggle.ativo:hover{background:#DCE9DF;}
+  .btn-toggle.ativo .btn-toggle-dot{background:var(--green);border-color:var(--green);}
+  .btn-toggle.ativo .btn-toggle-dot::after{content:"";position:absolute;left:3.5px;top:0.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .estoque-filtro-vazio{margin:0;padding:8px 20px 20px;font-size:14px;color:var(--ink-mute);}
   .estoque-card .estoque-table{padding:0 20px 18px;}
   .estoque-total.neg{color:var(--red);}
   .estoque-table{width:100%;border-collapse:collapse;font-size:14.5px;}
@@ -615,6 +621,8 @@
     histDataDeMaquina: "",
     histDataAteMaquina: "",
     estoqueExpandido: false,
+    // Lista de tipos no "Pedidos / Sobrando": mostrar só os que têm pedido ativo.
+    estoqueSoComPedido: safeGet("aves_estoque_so_com_pedido") === "1",
     precos: {},
     buscaClientes: "",
 
@@ -1246,6 +1254,9 @@
       var sobrando = encomendado - pedido;
       return { categoria: c.nome, encomendado: encomendado, pedido: pedido, sobrando: sobrando, preco: precoDe(c.nome) };
     });
+    // Botão "Com pedido ativo" da barra de filtros: igual ao "Filtrar
+    // tipos", vale pra lista e pros totais.
+    if(state.estoqueSoComPedido) rows = rows.filter(function(r){ return r.pedido > 0; });
     var totalSobrando = rows.reduce(function(s,r){ return s + r.sobrando; }, 0);
     var totalEncomendado = rows.reduce(function(s,r){ return s + r.encomendado; }, 0);
     var totalPedido = rows.reduce(function(s,r){ return s + r.pedido; }, 0);
@@ -1263,8 +1274,12 @@
     html += '<button type="button" class="btn btn-icon btn-sm" id="btnGerenciarTipos" title="Editar tipos de ave / criar novo tipo" style="margin-left:8px;flex-shrink:0;">'+ICON.gear+'</button>';
     html += '</div>';
     if(expandido){
+      var visiveis = rows;
+      if(visiveis.length === 0){
+        html += '<p class="estoque-filtro-vazio">'+(state.estoqueSoComPedido ? 'Nenhum tipo de ave com pedido ativo agora.' : 'Nenhum tipo de ave pra mostrar.')+'</p>';
+      } else {
       html += '<table class="estoque-table"><thead><tr><th>Tipo de ave</th><th>Encomendado</th><th>Pedidos ativos</th><th>Sobrando</th><th>Preço/ave</th><th></th></tr></thead><tbody>';
-      rows.forEach(function(r){
+      visiveis.forEach(function(r){
         html += '<tr>';
         html += '<td data-label="Tipo de ave">'+escapeHtml(r.categoria)+'</td>';
         html += '<td data-label="Encomendado">'+r.encomendado+'</td>';
@@ -1278,6 +1293,7 @@
         html += '</tr>';
       });
       html += '</tbody></table>';
+      }
     }
     html += '</div>';
     return html;
@@ -3126,7 +3142,8 @@
     html += buildEstoqueCardHtml();
     html += '<div class="toolbar">';
     html += '  <button class="btn" id="btnFiltroTipos">'+ICON.filter+' Filtrar tipos'+(state.categoriasExcluidas.length>0?' <span class="count" style="margin-left:4px;">'+(CATEGORIAS.length-state.categoriasExcluidas.length)+'</span>':'')+'</button>';
-    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="fBusca" placeholder="Buscar por nome ou município" value="'+escapeHtml(state.buscaPedidos)+'"></div>';
+    html += '  <button class="btn btn-toggle'+(state.estoqueSoComPedido?' ativo':'')+'" id="btnSoComPedido" aria-pressed="'+state.estoqueSoComPedido+'" title="Mostrar no quadro Pedidos / Sobrando só os tipos de ave que têm pedido ativo"><span class="btn-toggle-dot"></span>Com pedido ativo</button>';
+    html += '  <div class="search-box">'+ICON.search+'<input type="text" id="fBusca" placeholder="Buscar nome ou município" value="'+escapeHtml(state.buscaPedidos)+'"></div>';
     html += '  <div class="spacer"></div>';
     html += '  <button class="btn btn-primary" id="btnNovoPedido">'+ICON.plus+' Novo pedido</button>';
     html += '  <button class="btn" id="btnVendaAvulsa">'+ICON.plus+' Venda avulsa</button>';
@@ -3150,6 +3167,12 @@
     document.getElementById("countPedidos").textContent = groupPedidos().filter(function(g){return g.status==="Ativo";}).length;
 
     document.getElementById("btnFiltroTipos").addEventListener("click", function(){ abrirFiltroTiposModal(); });
+    document.getElementById("btnSoComPedido").addEventListener("click", function(){
+      state.estoqueSoComPedido = !state.estoqueSoComPedido;
+      safeSet("aves_estoque_so_com_pedido", state.estoqueSoComPedido ? "1" : "0");
+      if(state.estoqueSoComPedido) state.estoqueExpandido = true; // mostra a lista já filtrada
+      renderPedidos();
+    });
     var fBusca = document.getElementById("fBusca");
     fBusca.addEventListener("input", function(e){ state.buscaPedidos = e.target.value; renderPedidos(); preserveFocus(fBusca); });
     document.getElementById("btnNovoPedido").addEventListener("click", function(){ openPedidoModal(null); });
