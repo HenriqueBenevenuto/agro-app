@@ -37,6 +37,23 @@ while ($listener.IsListening) {
             $response.ContentType = "application/json; charset=utf-8"
             $response.ContentLength64 = $bytes.Length
             $response.OutputStream.Write($bytes, 0, $bytes.Length)
+        } elseif ($localPath -eq "__salvar_link__") {
+            # Guarda o link do Apps Script num arquivo neste computador
+            # (api-url.txt). Assim o link nao se perde mesmo se o navegador
+            # apagar os dados do site ao fechar ou nao conseguir guarda-los.
+            try {
+                $novoLink = $request.QueryString["url"]
+                if (-not $novoLink -or $novoLink -notmatch '^https://script\.google\.com/') { throw "Link invalido." }
+                [System.IO.File]::WriteAllText((Join-Path $scriptDir "api-url.txt"), $novoLink.Trim())
+                $corpo = '{"ok":true}'
+            } catch {
+                $erro = $_.Exception.Message -replace '"', "'"
+                $corpo = '{"ok":false,"error":"' + $erro + '"}'
+            }
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($corpo)
+            $response.ContentType = "application/json; charset=utf-8"
+            $response.ContentLength64 = $bytes.Length
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
         } elseif ($localPath -eq "__atualizar__") {
             # Baixa os arquivos mais novos do GitHub e sobrescreve os locais.
             # A pagina so precisa recarregar depois disso -- nao precisa reiniciar nada.

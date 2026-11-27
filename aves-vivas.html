@@ -638,6 +638,24 @@
   function safeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
   function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 
+  // O link do Apps Script fica guardado em dois lugares: no navegador
+  // (localStorage) e num arquivo do próprio computador (api-url.txt, via
+  // servidor.ps1). O arquivo é o que vale -- alguns navegadores apagam os
+  // dados do site ao fechar, e aí o link voltava pro antigo/sumia.
+  function linkValido(u){ return /^https:\/\/script\.google\.com\//.test(String(u || "").trim()); }
+  function salvarLinkNoComputador(url){
+    return fetch("__salvar_link__?url=" + encodeURIComponent(url))
+      .then(function(r){ return r.ok ? r.json() : { ok:false }; })
+      .catch(function(){ return { ok:false }; });
+  }
+  function carregarLinkDoComputador(){
+    var limite = new Promise(function(res){ setTimeout(function(){ res(""); }, 2000); });
+    var leitura = fetch("api-url.txt?t=" + Date.now())
+      .then(function(r){ return r.ok ? r.text() : ""; })
+      .catch(function(){ return ""; });
+    return Promise.race([leitura, limite]).then(function(txt){ return String(txt || "").trim(); });
+  }
+
   // Aceita "50", "50,5", "1.234,56" ou "50.5" e devolve número.
   function parseMoeda(txt){
     var t = String(txt == null ? "" : txt).trim().replace(/R\$|\s/g, "");
@@ -5420,6 +5438,7 @@
       if(!url){ toast("Cole a URL do app da Web.", "err"); return; }
       state.apiUrl = url;
       safeSet(STORAGE_KEY, url);
+      salvarLinkNoComputador(url);
       closeModal();
       if(senhaAtual){
         testConnection();
@@ -5659,6 +5678,20 @@
   renderPlantasHistorico();
   renderCadastroPlantas();
 
+  carregarLinkDoComputador().then(function(linkArquivo){
+    if(linkValido(linkArquivo)){
+      if(linkArquivo !== state.apiUrl){
+        state.apiUrl = linkArquivo;
+        safeSet(STORAGE_KEY, linkArquivo);
+      }
+    } else if(linkValido(state.apiUrl)){
+      // Primeira vez com essa versão: copia o link do navegador pro arquivo.
+      salvarLinkNoComputador(state.apiUrl);
+    }
+    iniciarTelaInicial();
+  });
+
+  function iniciarTelaInicial(){
   if(!state.apiUrl){
     iniciarAppLiberado();
   } else if(senhaSalva){
@@ -5666,6 +5699,7 @@
     iniciarAppLiberado();
   } else {
     mostrarTelaSenha();
+  }
   }
 
   // Avisa o servidor local pra se desligar sozinho quando a janela do
